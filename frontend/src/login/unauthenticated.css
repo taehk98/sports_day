@@ -1,0 +1,10 @@
+.form-group{
+    width:350px;
+    margin-left:auto;
+    margin-right:auto;
+    padding: 10px;
+}
+
+.login-button{
+    text-align: center;
+}

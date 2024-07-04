@@ -136,9 +136,12 @@ apiRouter.delete('/auth/logout', async (req, res) => {
     }
 });
 
-apiRouter.get('/get-scores', async (req, res) => {
+apiRouter.get('/get-scores/:id', async (req, res) => {
+    const { id } = req.params;
+    const { eventName } = req.query;
+
     try {
-        const scores = await DB.initialScores();
+        const scores = await DB.initialScores(eventName, id);
         authToken = await req.cookies[authCookieName];
         authToken = authToken ? authToken : null;
         userID = userID ? userID : null;
@@ -163,9 +166,12 @@ secureApiRouter.use(async (req, res, next) => {
     }
     });
 
-secureApiRouter.get('/get-activityList', async (req, res) => {
+secureApiRouter.get('/get-activityList/:id', async (req, res) => {
+    const { id } = req.params;
+    const { eventName } = req.query;
+    
     try {
-        const activities = await DB.getActivityList();
+        const activities = await DB.getActivityList(eventName, id);
         res.status(200).send(activities);
     } catch (error) {
         console.error('Error fetching activities:', error);
@@ -184,11 +190,15 @@ secureApiRouter.post('/update-snack', async (req, res) => {
     }
 })
 
-secureApiRouter.post('/insert-team', async (req, res) => {
+secureApiRouter.post('/insert-team/:id', async (req, res) => {
+    const { id } = req.params;
+    const { eventName } = req.query;
+
     try {
         authToken = req.cookies[authCookieName];
-        const scores = await DB.insertTeam(req.body);
-        res.status(200).send({scores: scores , access_token: authToken , id: 'admin'});
+        const scores = await DB.insertTeam(req.body, eventName, id);
+        const eventList = await DB.getEventList(id);
+        res.status(200).send({eventName: eventName, eventList: eventList, scores: scores , access_token: authToken , id: id});
     } catch(err) {
         res.status(400)
     }
@@ -249,8 +259,8 @@ secureApiRouter.get('/get-event-data/:id', async (req, res) => {
     try {
         const scores = await DB.getEventScores(eventName, id);
         const authToken = req.cookies[authCookieName] || null;
-        
-        res.status(200).send({ scores: scores, access_token: authToken, id: id });
+        const eventList = await DB.getEventList(id);
+        res.status(200).send({ eventList: eventList, eventName: eventName, scores: scores, access_token: authToken, id: id });
     } catch (error) {
         console.error('Error fetching event data:', error);
         res.status(400).end();

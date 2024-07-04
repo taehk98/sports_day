@@ -142,7 +142,6 @@ const deleteEvent = ( async (eventName) => {
 });
 
 const getEventData = async (eventName) => {
-  console.log(eventName)
   try {
     const response = await fetch(`/api/get-event-data/${id}?eventName=${encodeURIComponent(eventName)}`, {
       method: 'GET',
@@ -153,7 +152,10 @@ const getEventData = async (eventName) => {
     }
 
     const eventData = await response.json();
-    storeInSession('eventData', JSON.stringify(eventData));
+    console.log(eventData)
+    storeInSession('user', JSON.stringify(eventData));
+    storeInSession('data', JSON.stringify(eventData.scores));
+    setUserAuth(eventData);
     window.location.href = '/rank';
   } catch (error) {
     console.error('Error getting event data:', error);
@@ -201,9 +203,8 @@ const getEventData = async (eventName) => {
             <MDBListGroupItem 
               key={index} 
               className={`d-flex px-4 justify-content-between align-items-center hover:bg-lightpink cursor-pointer `}
-              onClick={()=> getEventData(event.eventName)}
             >
-              <div>
+              <div onClick={()=> getEventData(event.eventName)}>
                 <div className='fw-bold'>{event.eventName}</div>
                 <div className='text-muted'>생성일: {event.created}</div>
                 <div className='text-muted'>최근 수정일: {event.modified}</div>

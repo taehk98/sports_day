@@ -1,8 +1,9 @@
-import React , { useState, useEffect } from 'react';
+import React , { useState, useEffect, useContext } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { storeInSession, lookInSession } from '../common/session';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faArrowsRotate } from '@fortawesome/free-solid-svg-icons'
+import { UserContext } from '../App';
 import Box from '@mui/material/Box';
 import Collapse from '@mui/material/Collapse';
 import IconButton from '@mui/material/IconButton';
@@ -22,47 +23,84 @@ export function CollapsibleTable() {
         return JSON.parse(lookInSession('data')); 
     });
 
-    async function fetchData() {
-        let id = toast.loading("순위를 가져오는중입니다...");
+    const {
+        userAuth: { id, eventName} ,
+        setUserAuth,
+    } = useContext(UserContext);
+
+    // async function fetchData() {
+    //     let toastId = toast.loading("순위를 가져오는중입니다...");
+    //     try {
+    //         const response = await fetch(`/api/get-scores/${id}?eventName=${encodeURIComponent(eventName)}`);
+    
+    //         if (!response.ok) {
+    //             throw new Error('Network response was not ok');
+    //         }
+    
+    //         if (response.status === 200) {
+    //             const scoresAndTokenAndId = await response.json();
+    //             storeInSession('data', JSON.stringify(scoresAndTokenAndId.scores));
+    //             setScores(scoresAndTokenAndId.scores)
+    //             setRows(scoresAndTokenAndId.scores);
+    //             toast.success('순위를 가져왔습니다.', {
+    //                 id: toastId,
+    //                 duration: 1000, // 2초 동안 표시
+    //             });     
+    //         }
+    //     } catch (error) {
+    //         toast.error('점수를 불러오는데 실패했습니다.', {
+    //             id: toastId,
+    //             duration: 2000, // 3초 동안 표시
+    //         });
+    //     }
+    // }
+
+    const getEventData = async () => {
+        let toastId = toast.loading("순위를 가져오는중입니다...");
         try {
-            const response = await fetch('/api/get-scores');
-    
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-    
-            if (response.status === 200) {
-                const scoresAndTokenAndId = await response.json();
-                storeInSession('data', JSON.stringify(scoresAndTokenAndId.scores));
-                setScores(scoresAndTokenAndId.scores)
-                setRows(scoresAndTokenAndId.scores);
-                toast.success('순위를 가져왔습니다.', {
-                    id: id,
-                    duration: 1000, // 2초 동안 표시
-                });     
-            }
+          const response = await fetch(`/api/get-event-data/${id}?eventName=${encodeURIComponent(eventName)}`, {
+            method: 'GET',
+          });
+      
+          if (!response.ok) {
+            throw new Error('행사 데이터를 가져오는데 실패했습니다.');
+          }
+      
+          const eventData = await response.json();
+          console.log(eventData)
+          storeInSession('user', JSON.stringify(eventData));
+          storeInSession('data', JSON.stringify(eventData.scores));
+          setScores(scoresAndTokenAndId.scores)
+          setRows(scoresAndTokenAndId.scores);
+
+          toast.success('순위를 가져왔습니다.', {
+            id: toastId,
+            duration: 1000, // 2초 동안 표시
+            });   
         } catch (error) {
-            toast.error('점수를 불러오는데 실패했습니다.', {
-                id: id,
+            toast.error('순위를 불러오는데 실패했습니다.', {
+                id: toastId,
                 duration: 2000, // 3초 동안 표시
             });
         }
-    }
+      }
 
     useEffect(()=> {
-        fetchData()
+        if(!scores){
+            getEventData();
+        }
         // 저장한거 쓰려면 !scores일때만 하게 하면됨
     }, [])
 
     let newDataArray = [];
 
     useEffect(() => {
-        if(scores !== undefined && scores !== null){
+        if(scores !== undefined && scores !== null && Array.isArray(scores) && scores.length > 0) {
             for (const scoreObj of Object.values(scores)) {
                 const { teamName, participateNum, totalScore, activities } = scoreObj;
                 newDataArray.push(createData(teamName, participateNum, totalScore, activities));
             }
-            setTotalNum(Object.keys(scores[0]['activities']).length);
+            setTotalNum(scores.length() > 0 ? Object.keys(scores[0]['activities']).length : 0);
             newDataArray = [...newDataArray].sort((a, b) => b.totalScore - a.totalScore);
             setRows(newDataArray);
             setClicked('totalScore');
@@ -70,10 +108,13 @@ export function CollapsibleTable() {
             setSortByParticipateNum(null);
             setRankingOrder(false);
 
+        } else {
+            newDataArray.push(createData('팀이 없음', 0, 0, []));
+            setRows(newDataArray);
         }
     }, [scores])
 
-    const [totalNum, setTotalNum] = useState(20);
+    const [totalNum, setTotalNum] = useState(0);
     const [rows, setRows] = useState([]);
     const [sortByTotalScore, setSortByTotalScore] = useState(null);
     const [sortByParticipateNum, setSortByParticipateNum] = useState(null);
@@ -209,7 +250,7 @@ function Row(props) {
         <TableCell component="th" scope="row" align="center" style={{ fontSize: '15px'}}>
              {ranking}등
         </TableCell>
-        <TableCell align="center" style={{ fontSize: '15px'}} >{row.teamName}조</TableCell>
+        <TableCell align="center" style={{ fontSize: '15px'}} >{row.teamName}</TableCell>
         <TableCell align="center" style={{ fontSize: '15px'}} >{row.participateNum} / {totalNum}</TableCell>
         <TableCell align="center" style={{ fontSize: '15px'}} >{row.totalScore}점</TableCell>
       </TableRow>
@@ -270,7 +311,7 @@ function Row(props) {
         <Toaster/>
         <div className='text-2xl rounded font-bold text-center py-2 mx-2 bg-pink-100 flex justify-center relative'>
             <span >실시간 순위표</span>
-            <FontAwesomeIcon icon={faArrowsRotate} onClick={fetchData} className="absolute right-0 top-1/2 transform -translate-y-1/2 pr-2" />
+            <FontAwesomeIcon icon={faArrowsRotate} onClick={getEventData} className="absolute right-0 top-1/2 transform -translate-y-1/2 pr-2" />
         </div>
         <div className='mx-2'>
         <TableContainer component={Paper} className='bg-bgColor' sx={{ width: '100%', zIndex: 20}}>

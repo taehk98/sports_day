@@ -26,7 +26,7 @@ export function TeamList() {
     });
 
     const {
-        userAuth: { access_token },
+        userAuth: { access_token, id , eventName },
         setUserAuth,
     } = useContext(UserContext);
 
@@ -37,7 +37,7 @@ export function TeamList() {
     // insert a team to scores
     async function insertTeam(newTeam, toastID) { 
         try {
-            const response = await fetch('/api/insert-team', {
+            const response = await fetch(`/api/insert-team/${id}?eventName=${encodeURIComponent(eventName)}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -71,13 +71,13 @@ export function TeamList() {
     }
 
     const addTeam = ( async () => {
-        let id = toast.loading("조를 추가중입니다.");
+        let toastId = toast.loading("조를 추가중입니다.");
         let duplicatName = false;
         let error = false;
         scores.forEach(team => {
             if(team.teamName == teamName) {
                 toast.error('중복된 팀 아이디가 있습니다. \n다른 이름을 사용해주세요', {
-                    id: id,
+                    id: toastId,
                     duration: 2000 // 1초 동안 표시
                 });
                 duplicatName = true;
@@ -90,7 +90,7 @@ export function TeamList() {
         }
         let activityList = [];
         let activitiesObject = {};
-        await fetch(`/api/get-activityList`)
+        await fetch(`/api/get-activityList/${id}?eventName=${encodeURIComponent(eventName)}`)
             .then(response => {
                 if (!response.ok) {
                 throw new Error('Network response was not ok');
@@ -104,7 +104,7 @@ export function TeamList() {
             .catch(error => {
                 // 오류 처리
                 toast.error('조 추가에 실패했습니다', {
-                    id: id,
+                    id: toastId,
                     duration: 2000 // 1초 동안 표시
                 });
                 console.error('There was a problem with the fetch operation:', error);
@@ -114,25 +114,26 @@ export function TeamList() {
             return; // 함수 종료
         }
 
-        activityList[0].activities.forEach(activity => {
-            activitiesObject[activity] = 0;
-        });
-
-        let snack = [false, false, false, false, false];
+        if (!Array.isArray(activityList) && Object.keys(activityList).length > 0) {
+            activityList[0].activities.forEach(activity => {
+                activitiesObject[activity] = 0;
+            });
+        } else {
+            activitiesObject = {};
+        }
         
         const newTeam = {
             teamName: teamName,
             totalScore: 0,
             participateNum: 0,
             activities: activitiesObject,
-            snack: snack
         }
 
-        await insertTeam(newTeam, id);
+        await insertTeam(newTeam, toastId);
     });
 
     const deleteTeam = ( async (teamID, teamName) => {
-        const id = toast.loading(`${teamName}조를 삭제중입니다.`);
+        const toastId = toast.loading(`${teamName}조를 삭제중입니다.`);
         try {
             const response = await fetch(`/api/delete-team/${teamID}` , {
                 method: 'DELETE',
@@ -147,13 +148,13 @@ export function TeamList() {
             setUserAuth(scoresAndTokenAndId);
             setRows(scoresAndTokenAndId.scores);
             toast.success(`${teamName}조를 삭제했습니다`, {
-                id: id,
+                id: toastId ,
                 duration: 2000, // 2초 동안 표시
             });    
 
         }catch (error) {
             toast.error('조 삭제에 실패했습니다.', {
-                id: id,
+                id: toastId,
                 duration: 2000 // 1초 동안 표시
             });
             console.error('Error:', error);
@@ -266,7 +267,7 @@ export function TeamList() {
                         </MDBListGroupItem>
                         <MDBListGroupItem className="px-3 py-1 d-flex align-items-center flex-grow-1 border-0 bg-transparent">
                         {" "}
-                        <p className="lead fw-normal mb-0">{row.teamName}조</p>
+                        <p className="lead fw-normal mb-0">{row.teamName}</p>
                         </MDBListGroupItem>
                         <MDBListGroupItem className="px-3 py-1 d-flex align-items-center border-0 bg-transparent pr-1">
                         <div className="px-2 me-2 border-1 border-ppink rounded-3 d-flex align-items-center bg-light">
@@ -321,7 +322,7 @@ export function TeamList() {
                     >
                         <MDBCardBody className="py-2 px-3 px-md-5">
                         <p className="  text-center py-2 ">
-                            <u className='font-bold text-3xl no-underline'>조 관리</u>
+                            <u className='font-bold text-3xl no-underline'>팀 관리</u>
                         </p>
                         <div className="pb-1">
                             <MDBCard>
@@ -331,7 +332,7 @@ export function TeamList() {
                                             type="text"
                                             className="form-control form-control-lg w-9/12 md:w-11/12 text-base"
                                             id="exampleFormControlInput1"
-                                            placeholder="예시) 1조 -> 1"
+                                            placeholder="팀 이름을 입력하세요."
                                             style={{ fontSize: '16px'}}
                                             value={teamName}
                                             onChange={(e) => setTeamName(e.target.value)}

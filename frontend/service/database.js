@@ -22,12 +22,19 @@ const eventListCollection = db.collection('eventLists');
     process.exit(1);
   });
 
-async function initialScores() {
+  async function initialScores(eventName, id) {
     try {
-        const allDocuments = await scoresCollection.find({}).toArray();
-        // 업데이트된 attendances를 외부로 반환
-        scores = allDocuments;
-        return scores;
+        const document = await scoresCollection.findOne(
+            { id: id, 'events.eventName': eventName },
+            { projection: { events: { $elemMatch: { eventName: eventName } } } }
+        );
+
+        let targetEvent = null;
+        if (document && document.events && document.events.length > 0) {
+            targetEvent = document.events[0];
+        }
+
+        return targetEvent;
     } catch (err) {
         console.error('Failed to fetch documents from the collection:', err);
         return;
@@ -65,10 +72,15 @@ async function createUser(id, password) {
         id: id,
         events: []
     }
+    const activityList = {
+        id: id,
+        events: []
+    }
     try {
         const newUser = await userCollection.insertOne(user);
         const newEvent = await eventListCollection.insertOne(events);
         const newScores = await scoresCollection.insertOne(scores);
+        const newActivityList = await activityListCollection.insertOne(activityList);
         return newUser;
     } catch (err) {
         console.error('사용자 생성 중 오류:', err);
@@ -126,17 +138,46 @@ async function getTeam(teamName) {
     return await scoresCollection.findOne({ teamName: teamName });
 }
 
-async function insertTeam(team) {
+async function insertTeam(team, eventName, id) {
     try {
-        // 팀 이름 중복 확인
-        const existingTeam = await scoresCollection.findOne({ teamName: team.teamName });
-        if (existingTeam) {
+        // id, eventName, teamName으로 문서 찾기
+        const document = await scoresCollection.findOne({
+            id: id,
+            'events': {
+                $elemMatch: {
+                    eventName: eventName
+                }
+            }
+        });
+
+        if (!document) {
+            throw new Error('해당 id, eventName를 가진 문서를 찾을 수 없습니다.');
+        }
+
+        // events 배열에서 eventName이 일치하는 요소 찾기
+        const event = document.events.find(event => event.eventName === eventName);
+
+        if (!event) {
+            throw new Error('해당 eventName을 가진 이벤트를 찾을 수 없습니다.');
+        }
+
+        // teamName 중복 확인
+        if (event.teams.some(existingTeam => existingTeam.teamName === team.teamName)) {
             throw new Error('팀 이름이 이미 존재합니다.');
         }
-        await scoresCollection.insertOne(team);
-        return await initialScores();
+
+        // team 추가
+        event.teams.push(team);
+
+        // 업데이트된 문서 저장
+        await scoresCollection.updateOne(
+            { id: id, 'events.eventName': eventName },
+            { $set: { 'events.$.teams': event.teams } }
+        );
+
+        return await getEventScores(eventName, id); // 초기화된 스코어 반환
     } catch (err) {
-        console.error('Failed to add the team', err);
+        console.error('팀 추가에 실패했습니다.', err);
         return;
     }
 }
@@ -178,9 +219,19 @@ async function deleteEvent(eventName, id) {
     }
 
     if (result.modifiedCount === 0) {
-        console.error(`해당 행사를 찾지 못했습니다: ${eventName}`);
-        throw new Error(`해당 행사를 찾지 못했습니다: ${eventName}`);
+        console.error(`해당 행사를 삭제하지 못했습니다: ${eventName}`);
+        throw new Error(`해당 행사를 삭제하지 못했습니다: ${eventName}`);
     }
+    result = await scoresCollection.updateOne(
+        { id: id },
+        { $pull: { events: { eventName: eventName } } }
+    );
+
+    if (result.modifiedCount === 0) {
+        console.error(`해당 행사를 삭제하지 못했습니다: ${eventName}`);
+        throw new Error(`해당 행사를 삭제하지 못했습니다: ${eventName}`);
+    }
+
       return await getEventList(id);
     } catch (error) {
         throw new Error('행사 삭제에 실패했습니다.');
@@ -201,11 +252,20 @@ async function insertEvent(event, id) {
         const newEventScore = {
             id: id,
             eventName: event.eventName,
-            scores: []
+            teams: []
         }
         const scores = await scoresCollection.updateOne(
             { id: id },
-            { $push: { scores: { events: newEventScore }} }
+            { $push: { events: newEventScore } }
+        );
+        const newActivityList = {
+            id: id,
+            eventName: event.eventName,
+            activities: []
+        }
+        const activityList = await activityListCollection.updateOne(
+            { id: id },
+            { $push: { events: newActivityList } }
         );
 
         return await getEventList(id);
@@ -216,15 +276,27 @@ async function insertEvent(event, id) {
 }
 
 async function getEventScores(eventName, id) {
-    return await scoresCollection.findOne({
-        id: id,
-        events: {
-            $elemMatch: {
-                eventName: eventName
-            }
+    try {
+        const document = await scoresCollection.findOne(
+            { id: id, 'events.eventName': eventName },
+            { projection: { 'events.$': 1 } }
+        );
+
+        if (!document || !document.events || document.events.length === 0) {
+            throw new Error('해당 이벤트를 찾을 수 없습니다.');
         }
-    });
-    
+
+        const event = document.events[0];
+
+        if (!event.teams) {
+            throw new Error('해당 이벤트의 팀 정보가 없습니다.');
+        }
+
+        return event.teams;
+    } catch (err) {
+        console.error('Failed to fetch teams for the event:', err);
+        return null;
+    }
 }
 
 
@@ -306,11 +378,15 @@ async function insertActivity(activityName) {
     }
 }
 
-async function getActivityList() {
+async function getActivityList(eventName, id) {
     try {
-        const activities = await activityListCollection.find({}).toArray();
-        // console.log(activities)
-        return activities;
+        const event = await activityListCollection.findOne(
+            { id: id, events: { $elemMatch: { eventName: eventName } } },
+            { projection: { 'events.$': 1 } } // events 배열에서 조건에 맞는 첫 번째 요소만 반환
+          );
+          
+        console.log(event);
+        return event.events[0].activities; // Adjust the format if needed
     } catch (error) {
         console.error('Error fetching activity list:', error);
         throw error;
@@ -423,11 +499,15 @@ async function getTeamNamesFromScores() {
     }
 }
 
-async function getActivities() {
+async function getActivities(eventName, id) {
     try {
-        const activities = await activityListCollection.distinct('activities');
+        const event = await activityListCollection.findOne(
+            { id: id, events: { $elemMatch: { eventName: eventName } } },
+            { projection: { 'events.$': 1 } } // events 배열에서 조건에 맞는 첫 번째 요소만 반환
+          );
+          
         // console.log(activities);
-        return activities.map(activity => ({ activity })); // Adjust the format if needed
+        return event.activities.map(activity => ({ activity })); // Adjust the format if needed
     } catch (error) {
         console.error('Error fetching team names from scores:', error);
         throw error;

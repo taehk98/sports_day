@@ -12,6 +12,7 @@ const db = client.db('sportsday');
 const scoresCollection = db.collection('scores');
 const userCollection = db.collection('users');
 const activityListCollection = db.collection('activityLists');
+const eventListCollection = db.collection('eventLists');
 
 (async function testConnection() {
     await client.connect();
@@ -56,8 +57,18 @@ async function createUser(id, password) {
         password: hashedPassword,
         token: [],
     };
+    const events = {
+        id: id,
+        events: []
+    }
+    const scores = {
+        id: id,
+        events: []
+    }
     try {
         const newUser = await userCollection.insertOne(user);
+        const newEvent = await eventListCollection.insertOne(events);
+        const newScores = await scoresCollection.insertOne(scores);
         return newUser;
     } catch (err) {
         console.error('사용자 생성 중 오류:', err);
@@ -107,6 +118,10 @@ async function getAdmin(userId) {
     return await userCollection.findOne({ id: userId });
 }
 
+async function getEventList(userId) {
+    return await eventListCollection.findOne({ id: userId });
+}
+
 async function getTeam(teamName) {
     return await scoresCollection.findOne({ teamName: teamName });
 }
@@ -145,6 +160,73 @@ async function deleteTeam(teamID) {
         throw new Error('팀들 삭제에 실패했습니다.');
     }
 }
+
+async function deleteEvent(eventName, id) {
+    try {
+      let result = await eventListCollection.updateOne(
+        { id: id },
+        { $pull: { events: { eventName: eventName } } }
+    );
+      // 재시도 로직 추가
+      if (result.modifiedCount === 0) {
+        // console.warn(`Document not found on first try for _id: ${teamID}. Retrying...`);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 1초 대기
+        result = await eventListCollection.updateOne(
+            { id: id },
+            { $pull: { events: { eventName: eventName } } }
+        );
+    }
+
+    if (result.modifiedCount === 0) {
+        console.error(`해당 행사를 찾지 못했습니다: ${eventName}`);
+        throw new Error(`해당 행사를 찾지 못했습니다: ${eventName}`);
+    }
+      return await getEventList(id);
+    } catch (error) {
+        throw new Error('행사 삭제에 실패했습니다.');
+    }
+}
+
+async function insertEvent(event, id) {
+    try {
+        // 팀 이름 중복 확인
+        const eventList = await eventListCollection.findOne({ id: id });
+        if (eventList.events.includes(event.eventName)) {
+            throw new Error('팀 이름이 이미 존재합니다.');
+        }
+        await eventListCollection.updateOne(
+            { id: id },
+            { $push: { events: event } }
+        );
+        const newEventScore = {
+            id: id,
+            eventName: event.eventName,
+            scores: []
+        }
+        const scores = await scoresCollection.updateOne(
+            { id: id },
+            { $push: { scores: { events: newEventScore }} }
+        );
+
+        return await getEventList(id);
+    } catch (err) {
+        console.error('Failed to add the team', err);
+        return;
+    }
+}
+
+async function getEventScores(eventName, id) {
+    return await scoresCollection.findOne({
+        id: id,
+        events: {
+            $elemMatch: {
+                eventName: eventName
+            }
+        }
+    });
+    
+}
+
 
 async function deleteMultipleTeams(teamIDs) {
     try {
@@ -362,6 +444,8 @@ async function getNumActsFromScores() {
 }
 
 module.exports = {
+    getEventList,
+    deleteEvent,
     createUser,
     getUser,
     getUserByToken,
@@ -381,5 +465,7 @@ module.exports = {
     deleteActivity,
     deleteMultipleActivities,
     deleteUserToken,
-    updateSnack
+    updateSnack,
+    insertEvent,
+    getEventScores
 };

@@ -42,12 +42,21 @@ const loginSchema = Joi.object({
     password: Joi.string().pattern(new RegExp('^[a-zA-Z0-9]{8,}$')).required()
 });
 
+const eventSchema = Joi.object({
+    eventName: Joi.string().pattern(new RegExp('^[a-zA-Z0-9가-힣 ]+$')).required(),
+    created: Joi.string().regex(/^\d{4}\/\d{2}\/\d{2}$/).required(),
+    modified: Joi.alternatives().try(
+        Joi.string().valid('없음'), // Validating for '없음'
+        Joi.string().regex(/^\d{4}\/\d{2}\/\d{2}$/).required() // Validating for yyyy/mm/dd format
+      ).required()
+});
+
 apiRouter.post('/auth/create', async (req, res) => {
     const { error, value } = loginSchema.validate(req.body);
 
     if (error) {
         // 유효성 검사 실패 시 클라이언트에게 오류 응답 반환
-        return res.status(400).send({ msg: '비밀번호는 8자 이상의 문자로 입력해주세요.', details: error.details });
+        return res.status(400).send({ msg: '비밀번호는 8자 이상의 영문자로 입력해주세요.', details: error.details });
     }
     try {
         let user = await DB.getAdmin(value.id);
@@ -58,12 +67,13 @@ apiRouter.post('/auth/create', async (req, res) => {
     
         user = await DB.createUser(value.id, value.password);
         // Set the cookie
+        const eventList = await DB.getEventList(value.id);
         const scores = await DB.initialScores();
         const accessToken = uuidv4();
         setAuthCookie(res, accessToken);
         await DB.setAdminToken(value.id, accessToken);
 
-        return res.status(200).send({ scores, access_token: accessToken, id: value.id });
+        return res.status(200).send({ scores, eventList: eventList, access_token: accessToken, id: value.id });
     } catch (err) {
         console.error('아이디 생성 중 오류:', err);
         return res.status(500).send({ msg: '서버 오류: 아이디 생성을 처리하는 도중에 문제가 발생했습니다.' });
@@ -82,6 +92,7 @@ apiRouter.post('/auth/login', async (req, res) => {
     try {
         // 사용자 조회
         const user = await DB.getAdmin(value.id);
+        const eventList = await DB.getEventList(value.id);
 
         if (!user) {
             return res.status(401).send({ msg: '로그인 실패: 아이디 또는 비밀번호를 다시 확인해주세요.' });
@@ -100,7 +111,7 @@ apiRouter.post('/auth/login', async (req, res) => {
         setAuthCookie(res, accessToken);
         await DB.setAdminToken(value.id, accessToken);
 
-        return res.status(200).send({ scores, access_token: accessToken, id: value.id });
+        return res.status(200).send({ scores, eventList: eventList, access_token: accessToken, id: value.id });
     } catch (err) {
         console.error('로그인 중 오류:', err);
         return res.status(500).send({ msg: '서버 오류: 로그인을 처리하는 도중에 문제가 발생했습니다.' });
@@ -197,6 +208,52 @@ secureApiRouter.delete('/delete-team/:id', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).send('An error occurred while trying to delete the document');
+    }
+});
+
+secureApiRouter.post('/insert-event', async (req, res) => {
+    const { error, value } = eventSchema.validate(req.body.newEvent);
+
+    if (error) {
+        // 유효성 검사 실패 시 클라이언트에게 오류 응답 반환
+        return res.status(400).send({ msg: '행사이름을 숫자와 문자 조합으로 만들어주세요.', details: error.details });
+    }
+
+    try {
+        authToken = req.cookies[authCookieName];
+        const eventList = await DB.insertEvent(value, req.body.id );
+        return res.status(200).send({eventList: eventList, access_token: authToken , id: req.body.id});
+    } catch(err) {
+        return res.status(400).send({ msg: '서버 오류가 발생했습니다.'});
+    }
+});
+
+secureApiRouter.delete('/delete-event/:id', async (req, res) => {
+    const { id } = req.params;
+    const { eventName } = req.query;
+
+    try {
+        const eventList = await DB.deleteEvent(eventName, id);
+        authToken = req.cookies[authCookieName];
+        res.status(200).send({eventList: eventList , access_token: authToken , id: id});
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('An error occurred while trying to delete the event');
+    }
+});
+
+secureApiRouter.get('/get-event-data/:id', async (req, res) => {
+    const { id } = req.params;
+    const { eventName } = req.query;
+    
+    try {
+        const scores = await DB.getEventScores(eventName, id);
+        const authToken = req.cookies[authCookieName] || null;
+        
+        res.status(200).send({ scores: scores, access_token: authToken, id: id });
+    } catch (error) {
+        console.error('Error fetching event data:', error);
+        res.status(400).end();
     }
 });
 

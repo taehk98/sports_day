@@ -11,7 +11,7 @@ import {CollapsibleTable} from './components/table.component.jsx';
 import {Unauthenticated} from './login/unauthenticated.jsx';
 import {TeamList} from './components/teams-management.page.jsx';
 import {ActivityList} from './components/activities-management.page.jsx';
-import {EventList} from './pages/events.management.page.jsx';
+import EventList from './pages/events.management.page.jsx';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'mdb-react-ui-kit/dist/css/mdb.min.css';
 import "@fortawesome/fontawesome-free/css/all.min.css";

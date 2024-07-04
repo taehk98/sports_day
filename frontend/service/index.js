@@ -9,6 +9,7 @@ const axios = require("axios");
 const path = require("path");
 // const { peerProxy } = require('./peerProxy.js');
 const app = express();
+const Joi = require('joi');
 
 const port = process.argv.length > 2 ? process.argv[2] : 3000;
 const authCookieName = 'token';
@@ -36,21 +37,74 @@ app.use(function (err, req, res, next) {
     res.status(500).send({ type: err.name, message: err.message });
   });
 
-apiRouter.post('/auth/login', async (req, res) => {
-    const user = await DB.getAdmin(req.body.id);
-    if (user) {
-        if (await bcrypt.compare(req.body.password, user.password)) {
-        scores = await DB.initialScores();
+const loginSchema = Joi.object({
+    id: Joi.string().required(),
+    password: Joi.string().pattern(new RegExp('^[a-zA-Z0-9]{8,}$')).required()
+});
+
+apiRouter.post('/auth/create', async (req, res) => {
+    const { error, value } = loginSchema.validate(req.body);
+
+    if (error) {
+        // 유효성 검사 실패 시 클라이언트에게 오류 응답 반환
+        return res.status(400).send({ msg: '비밀번호는 8자 이상의 문자로 입력해주세요.', details: error.details });
+    }
+    try {
+        let user = await DB.getAdmin(value.id);
+
+        if (user) {
+            return res.status(409).send({ msg: '같은 아이디의 유저가 이미 존재합니다.' });
+        } 
+    
+        user = await DB.createUser(value.id, value.password);
+        // Set the cookie
+        const scores = await DB.initialScores();
         const accessToken = uuidv4();
         setAuthCookie(res, accessToken);
-        await DB.setAdminToken(req.body.id, accessToken);
-        userID = req.body.id;
-        res.status(200).send({ scores: scores, access_token: accessToken, id: userID });
-        // 호출 시 외부의 attendances 변수를 업데이트함
-        return;
-        }
+        await DB.setAdminToken(value.id, accessToken);
+
+        return res.status(200).send({ scores, access_token: accessToken, id: value.id });
+    } catch (err) {
+        console.error('아이디 생성 중 오류:', err);
+        return res.status(500).send({ msg: '서버 오류: 아이디 생성을 처리하는 도중에 문제가 발생했습니다.' });
     }
-    res.status(401).send({ msg: `로그인 실패: 아이디 또는 비밀번호를 \n다시 확인해주세요.` });
+    
+});
+
+apiRouter.post('/auth/login', async (req, res) => {
+    const { error, value } = loginSchema.validate(req.body);
+
+    if (error) {
+        // 유효성 검사 실패 시 클라이언트에게 오류 응답 반환
+        return res.status(400).send({ msg: '비밀번호는 8자 이상의 문자로 입력해주세요.', details: error.details });
+      }
+    
+    try {
+        // 사용자 조회
+        const user = await DB.getAdmin(value.id);
+
+        if (!user) {
+            return res.status(401).send({ msg: '로그인 실패: 아이디 또는 비밀번호를 다시 확인해주세요.' });
+        }
+
+        // 비밀번호 비교
+        const passwordMatch = await bcrypt.compare(value.password, user.password);
+
+        if (!passwordMatch) {
+            return res.status(401).send({ msg: '로그인 실패: 아이디 또는 비밀번호를 다시 확인해주세요.' });
+        }
+
+        // 인증 성공 시 초기 점수 및 액세스 토큰 생성 및 전송
+        const scores = await DB.initialScores();
+        const accessToken = uuidv4();
+        setAuthCookie(res, accessToken);
+        await DB.setAdminToken(value.id, accessToken);
+
+        return res.status(200).send({ scores, access_token: accessToken, id: value.id });
+    } catch (err) {
+        console.error('로그인 중 오류:', err);
+        return res.status(500).send({ msg: '서버 오류: 로그인을 처리하는 도중에 문제가 발생했습니다.' });
+    }
 });
 
   // DeleteAuth token if stored in cookie
@@ -89,14 +143,14 @@ var secureApiRouter = express.Router();
 apiRouter.use(secureApiRouter);
 
 secureApiRouter.use(async (req, res, next) => {
-authToken = req.cookies[authCookieName];
-const user = await DB.getUserByToken(authToken);
-if (user) {
-    next();
-} else {
-    res.status(401).send({ msg: 'Unauthorized' });
-}
-});
+    authToken = req.cookies[authCookieName];
+    const user = await DB.getUserByToken(authToken);
+    if (user) {
+        next();
+    } else {
+        res.status(401).send({ msg: 'Unauthorized' });
+    }
+    });
 
 secureApiRouter.get('/get-activityList', async (req, res) => {
     try {
@@ -313,7 +367,7 @@ async function addUserToAttds(email, attendances) {
 // setAuthCookie in the HTTP response
 function setAuthCookie(res, authToken) {
     res.cookie(authCookieName, authToken, {
-      secure: true,
+      secure: false,
       httpOnly: true,
       sameSite: 'strict',
     });

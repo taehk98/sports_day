@@ -25,10 +25,23 @@ export function Unauthenticated(props) {
     for (let [key, value] of form.entries()) {
       formData[key] = value;
     }
-    loginOrCreate(`/api/auth/login`, formData, id);
+    loginOrCreate(`/api/auth/login`, formData, id, "로그인");
   }
 
-  async function loginOrCreate(endpoint, formData, id) {
+  async function createUser(e)  {
+    let id = toast.loading("아이디 생성중입니다.");
+    e.preventDefault();
+    // formData
+    let form = new FormData(formElement);
+    let formData = {};
+
+    for (let [key, value] of form.entries()) {
+      formData[key] = value;
+    }
+    loginOrCreate(`/api/auth/create`, formData, id, "아이디 생성");
+  }
+
+  async function loginOrCreate(endpoint, formData, id, text) {
     const response = await fetch(endpoint, {
       method: 'post',
       body: JSON.stringify(formData),
@@ -36,9 +49,12 @@ export function Unauthenticated(props) {
         'Content-type': 'application/json; charset=UTF-8',
       },
     });
+    const responseBody = await response.json();
+
     if (response?.status === 200) {
-        const scoresAndTokenAndId = await response.json();
-        toast.success(`로그인 성공`, {
+        const scoresAndTokenAndId = responseBody;
+        let msg = text === "로그인" ? "로그인 성공" : "아이디 생성 성공";
+        toast.success(msg, {
             id: id,
             duration: 1000
     });
@@ -48,7 +64,8 @@ export function Unauthenticated(props) {
     }, 1000);      
     } else {
       // const body = await response.json();
-      toast.error(`로그인 실패: 아이디 또는 비밀번호를 \n다시 확인해주세요.`, {
+      let message = text === "로그인" ? `로그인 실패: ${responseBody.msg}` : `아이디 생성 실패: ${responseBody.msg}`;
+      toast.error(message , {
             id: id,
             duration: 2000
       });
@@ -56,7 +73,7 @@ export function Unauthenticated(props) {
   }
 
   return access_token ? (
-    <Navigate to='/rank' />
+    <Navigate to='/events' />
   ) : (
     <>
       <div className='h-cover flex flex-col items-center justify-center'>
@@ -74,13 +91,22 @@ export function Unauthenticated(props) {
             placeholder='비밀번호를 입력하세요.'
             icon='fi-rr-key'
           />
-          <button
-              className='btn-pink center mt-14'
-              type='submit'
-              onClick={loginUser}
-            >
-            로그인
-          </button>
+          <div className='flex flex-items'>
+            <button
+                className='btn-dark center mt-6'
+                type='submit'
+                onClick={createUser}
+              >
+              회원가입
+            </button>
+            <button
+                className='btn-pink center mt-6'
+                type='submit'
+                onClick={loginUser}
+              >
+              로그인
+            </button>
+          </div>
         </form>
       </div>
     </>

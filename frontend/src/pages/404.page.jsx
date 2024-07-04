@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link }from "react-router-dom"
 import pageNotFoundImage from "../assets/404.png";
-import fullLogo from "../assets/fsy_logo.png"
+import ㅣogo from "../assets/logo.png"
 
 const PageNotFound = () => {
     return(
@@ -14,7 +14,7 @@ const PageNotFound = () => {
              Head back to the <Link to="/" className="text-black underline">home page</Link></p>
 
             <div className="mt-auto">
-                <img src={fullLogo} className="h-8 object-contain block mx-auto select-none"/>
+                <img src={logo} className="h-8 object-contain block mx-auto select-none"/>
                 <p className="mt-5 text-dark-grey">Read millions of stories around the world</p>
             </div>
         </section>

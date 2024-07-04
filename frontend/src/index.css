@@ -77,7 +77,7 @@ background-color: #FFE6E6;
   }
 
   .btn-light {
-    @apply btn-dark bg-grey text-white;
+    @apply btn-dark bg-grey text-black;
   }
 
   .btn-pink {

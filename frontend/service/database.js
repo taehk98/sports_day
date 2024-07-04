@@ -7,11 +7,11 @@ const uuid = require('uuid');
 // connecting mongodb
 const url = `mongodb+srv://${config.userName}:${config.password}@${config.hostname}`;
 const client = new MongoClient(url);
-const db = client.db('fsy');
+const db = client.db('sportsday');
 
 const scoresCollection = db.collection('scores');
-const userCollection = db.collection('admin');
-const activityListCollection = db.collection('activityList');
+const userCollection = db.collection('users');
+const activityListCollection = db.collection('activityLists');
 
 (async function testConnection() {
     await client.connect();
@@ -47,6 +47,22 @@ async function setAdminToken(id, token) {
         console.error('유저 데이터 업데이트 오류:', error);
     }
     
+}
+
+async function createUser(id, password) {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = {
+        id: id,
+        password: hashedPassword,
+        token: [],
+    };
+    try {
+        const newUser = await userCollection.insertOne(user);
+        return newUser;
+    } catch (err) {
+        console.error('사용자 생성 중 오류:', err);
+        throw new Error('사용자를 생성하는 도중 오류가 발생했습니다.');
+    }
 }
 
 async function getUser(email) {
@@ -346,6 +362,7 @@ async function getNumActsFromScores() {
 }
 
 module.exports = {
+    createUser,
     getUser,
     getUserByToken,
     getTeam,

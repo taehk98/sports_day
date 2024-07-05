@@ -15,21 +15,54 @@ const EventList = () => {
     setUserAuth,
   } = useContext(UserContext);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const userFromSession = lookInSession('user');
-        if (userFromSession) {
-          const parsedUser = JSON.parse(userFromSession);
-          setUserData(parsedUser);
-          setRows(parsedUser.eventList.events || []);
-        }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-      }
-    };
+  // useEffect(() => {
+  //   const fetchUserData = async () => {
+  //     try {
+  //       const userFromSession = lookInSession('user');
+  //       if (userFromSession) {
+  //         const parsedUser = JSON.parse(userFromSession);
+  //         setUserData(parsedUser);
+  //         setRows(parsedUser.eventList.events || []);
+  //       }
+  //     } catch (error) {
+  //       console.error('Error fetching user data:', error);
+  //     }
+  //   };
 
-    fetchUserData();
+  //   fetchUserData();
+  // }, []);
+
+  const getEventList = async () => {
+    let toastId = toast.loading("행사 리스트를 가져오는 중 입니다...");
+    try {
+      const response = await fetch(`/api/get-eventList/${id}`, {
+        method: 'GET',
+      });
+  
+      if (!response.ok) {
+        throw new Error('행사 리스트를 가져오는데 실패했습니다.');
+      }
+  
+      const eventData = await response.json();
+      // storeInSession('user', JSON.stringify(eventData));
+      // storeInSession('data', JSON.stringify(eventData.scores));
+      setRows(eventData.eventList.events || []);
+      console.log(eventData)
+
+      toast.success('행사 리스트를 가져왔습니다.', {
+        id: toastId,
+        duration: 1000, // 2초 동안 표시
+        });   
+    } catch (error) {
+        toast.error('행사 리스트를 불러오는데 실패했습니다.', {
+            id: toastId,
+            duration: 2000, // 3초 동안 표시
+        });
+    }
+  }
+
+  useEffect(() => {
+      getEventList();
   }, []);
 
   const addEvent = async () => {

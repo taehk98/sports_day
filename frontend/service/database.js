@@ -182,23 +182,29 @@ async function insertTeam(team, eventName, id) {
     }
 }
 
-async function deleteTeam(teamID) {
+async function deleteTeam(teamName, eventName, id) {
     try {
-      const result = await scoresCollection.deleteOne({ _id: new ObjectId(teamID) });
+        let result = await scoresCollection.updateOne(
+            { id: id, 'events.eventName': eventName },
+            { $pull: { 'events.$.teams': { teamName: teamName } } }
+        );
       // 재시도 로직 추가
-      if (result.deletedCount === 0) {
+      if (result.modifiedCount === 0) {
         // console.warn(`Document not found on first try for _id: ${teamID}. Retrying...`);
         await new Promise(resolve => setTimeout(resolve, 1000)); // 1초 대기
-        result = await scoresCollection.deleteOne({ _id: new ObjectId(teamID) });
+        result = await scoresCollection.updateOne(
+            { id: id, 'events.eventName': eventName },
+            { $pull: { 'events.$.teams': { teamName: teamName } } }
+        );
     }
 
-    if (result.deletedCount === 0) {
+    if (result.modifiedCount === 0) {
         console.error(`해당 조를 찾지 못했습니다: ${teamID}`);
         throw new Error(`해당 조를 찾지 못했습니다: ${teamID}`);
     }
-      return await initialScores();
+        return await getEventScores(eventName, id);
     } catch (error) {
-        throw new Error('팀들 삭제에 실패했습니다.');
+        throw new Error('팀 삭제에 실패했습니다.');
     }
 }
 

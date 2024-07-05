@@ -27,7 +27,7 @@ const MenuNavigationPanel = () => {
           <p>행사 관리</p>
         </Link>
         <Link to='/team' className='flex gap-2 link pl-8 py-3 text-black'>
-          <p>조 관리</p>
+          <p>팀 관리</p>
         </Link>
         <Link to='/activity' className='flex gap-2 link pl-8 py-3 text-black'>
           <p>활동 관리</p>

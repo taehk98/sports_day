@@ -51,6 +51,8 @@ const eventSchema = Joi.object({
       ).required()
 });
 
+const teamNameSchema = Joi.string().pattern(new RegExp('^[a-zA-Z0-9가-힣 ]+$')).required();
+
 apiRouter.post('/auth/create', async (req, res) => {
     const { error, value } = loginSchema.validate(req.body);
 
@@ -194,30 +196,45 @@ secureApiRouter.post('/insert-team/:id', async (req, res) => {
     const { id } = req.params;
     const { eventName } = req.query;
 
+    const { error } = teamNameSchema.validate(req.body.teamName);
+    if (error) {
+        return res.status(500).send('유효한 팀 이름을 입력해주세요.');
+    }
+
     try {
         authToken = req.cookies[authCookieName];
         const scores = await DB.insertTeam(req.body, eventName, id);
-        const eventList = await DB.getEventList(id);
-        res.status(200).send({eventName: eventName, eventList: eventList, scores: scores , access_token: authToken , id: id});
+        return res.status(200).send({eventName: eventName, scores: scores , access_token: authToken , id: id});
     } catch(err) {
-        res.status(400)
+        return res.status(400).send('유효한 팀 이름을 입력해주세요.');
     }
 });
 
-secureApiRouter.delete('/delete-team/:id', async (req, res) => {
-    const { id } = req.params;
-
-    if (!ObjectId.isValid(id)) {
-        return res.status(400).send('Invalid ID format');
-    }
+secureApiRouter.delete('/delete-team/:teamName', async (req, res) => {
+    const { teamName } = req.params;
+    const { eventName, id } = req.query;
+    console.log(teamName, eventName, id)
 
     try {
-        const scores = await DB.deleteTeam(id);
+        const scores = await DB.deleteTeam(teamName, eventName, id);
         authToken = req.cookies[authCookieName];
-        res.status(200).send({scores: scores , access_token: authToken , id: 'admin'});
+        return res.status(200).send({eventName: eventName, scores: scores , access_token: authToken , id: id});
     } catch (error) {
         console.error(error);
-        res.status(500).send('An error occurred while trying to delete the document');
+        return res.status(500).send('An error occurred while trying to delete the document');
+    }
+});
+
+secureApiRouter.get('/get-eventList/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        authToken = req.cookies[authCookieName];
+        const eventList = await DB.getEventList(id);
+        return res.status(200).send({eventList: eventList, access_token: authToken , id: id});
+    } catch (error) {
+        console.error(error);
+        return res.status(500).send('An error occurred while trying to delete the document');
     }
 });
 
@@ -259,8 +276,7 @@ secureApiRouter.get('/get-event-data/:id', async (req, res) => {
     try {
         const scores = await DB.getEventScores(eventName, id);
         const authToken = req.cookies[authCookieName] || null;
-        const eventList = await DB.getEventList(id);
-        res.status(200).send({ eventList: eventList, eventName: eventName, scores: scores, access_token: authToken, id: id });
+        res.status(200).send({ eventName: eventName, scores: scores, access_token: authToken, id: id });
     } catch (error) {
         console.error('Error fetching event data:', error);
         res.status(400).end();

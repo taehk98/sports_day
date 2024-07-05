@@ -19,7 +19,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 
 export function CollapsibleTable() {
-    const [scores, setScores] = useState(() => {
+    const [scores, setScores] = useState(() => {[]
         return JSON.parse(lookInSession('data')); 
     });
 
@@ -100,7 +100,7 @@ export function CollapsibleTable() {
                 const { teamName, participateNum, totalScore, activities } = scoreObj;
                 newDataArray.push(createData(teamName, participateNum, totalScore, activities));
             }
-            setTotalNum(scores.length() > 0 ? Object.keys(scores[0]['activities']).length : 0);
+            setTotalNum(Array.isArray(scores) && scores.length > 0 ? Object.keys(scores[0]['activities']).length : 0);
             newDataArray = [...newDataArray].sort((a, b) => b.totalScore - a.totalScore);
             setRows(newDataArray);
             setClicked('totalScore');

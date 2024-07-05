@@ -62,8 +62,14 @@ export function TeamList() {
                     duration: 1000, // 2초 동안 표시
                 });     
             }
+            else {
+                toast.error('조를 추가하는데 실패했습니다.', {
+                    id: toastID,
+                    duration: 2000, // 3초 동안 표시
+                });
+            }
         } catch (error) {
-            toast.error('조를 추가하는데 실패했습니다.', {
+            toast.error('팀을 추가하지 못했습니다.\n특수 문자를 제외하고 입력해 주세요.', {
                 id: toastID,
                 duration: 2000, // 3초 동안 표시
             });
@@ -135,25 +141,25 @@ export function TeamList() {
     const deleteTeam = ( async (teamID, teamName) => {
         const toastId = toast.loading(`${teamName}조를 삭제중입니다.`);
         try {
-            const response = await fetch(`/api/delete-team/${teamID}` , {
+            const response = await fetch(`/api/delete-team/${teamName}?id=${encodeURIComponent(id)}&eventName=${encodeURIComponent(eventName)}` , {
                 method: 'DELETE',
             });
 
             if (!response.ok) {
-                throw new Error('조 삭제에 실패했습니다.');
+                throw new Error('팀 삭제에 실패했습니다.');
             }
             const scoresAndTokenAndId = await response.json();
             storeInSession('user', JSON.stringify(scoresAndTokenAndId));
             storeInSession('data', JSON.stringify(scoresAndTokenAndId.scores));
             setUserAuth(scoresAndTokenAndId);
             setRows(scoresAndTokenAndId.scores);
-            toast.success(`${teamName}조를 삭제했습니다`, {
+            toast.success(`${teamName}을(를) 삭제했습니다`, {
                 id: toastId ,
                 duration: 2000, // 2초 동안 표시
             });    
 
         }catch (error) {
-            toast.error('조 삭제에 실패했습니다.', {
+            toast.error('팀 삭제에 실패했습니다.', {
                 id: toastId,
                 duration: 2000 // 1초 동안 표시
             });

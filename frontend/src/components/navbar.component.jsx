@@ -1,6 +1,6 @@
 import React, { useContext, useState, useRef, useEffect } from 'react';
 import logo from '../assets/logo.png';
-import { Link, Outlet, useNavigate, Navigate } from 'react-router-dom';
+import { Link, Outlet, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { UserContext } from '../App';
 import MenuNavigationPanel from './menu-navigation.component';
 import { removeFromSession } from '../common/session';
@@ -15,6 +15,7 @@ const Navbar = () => {
     const menuRef = useRef(null);
 
     let navigate = useNavigate();
+    let location = useLocation();
     
     const {
         userAuth: { access_token },
@@ -93,7 +94,7 @@ const Navbar = () => {
     return (
         <>
             <nav className='navbar flex-items' style={{navbarStyle}}>
-            {access_token ? (
+            {access_token && location.pathname !== '/events' ? (
                     <>
                     <div
                         className='relative'
@@ -113,6 +114,19 @@ const Navbar = () => {
                         onClick={() => signOutUser()}
                     >
                         <h1 className='font-bold text-base mg-1'>로그아웃</h1>
+                    </button>
+                    </>
+                ) : access_token && location.pathname === '/events' ? (
+                    <>
+                        <Link to='/' className='flex-none w-24 mt-auto'>
+                            <img src={logo} className='w-full rounded-full'alt='Logo'/>
+                        </Link>
+                        <div className='flex items-center gap-3 md:gap-6 ml-auto'></div>
+                        <button
+                            className='btn-dark text-left p-3 hover:bg-grey  py-3'
+                            onClick={() => signOutUser()}
+                        >
+                            <h1 className='font-bold text-base mg-1'>로그아웃</h1>
                     </button>
                     </>
                 ) : (

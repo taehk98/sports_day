@@ -32,6 +32,9 @@ const MenuNavigationPanel = () => {
         <Link to='/rank' className='flex gap-2 link pl-8 py-3 text-black'>
           <p>순위</p>
         </Link>
+        <Link to='/qrcode' className='flex gap-2 link pl-8 py-3 text-black'>
+          <p>QR코드 생성</p>
+        </Link>
         <span className='absolute border-t border-grey w-[100%]'></span>
       </div>
   );

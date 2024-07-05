@@ -16,6 +16,8 @@ const Navbar = () => {
 
     let navigate = useNavigate();
     let location = useLocation();
+    const isPublicRankingPage = location.pathname.includes('/ranking/');
+    const isRankPage = location.pathname.includes('/rank');
     
     const {
         userAuth: { access_token },
@@ -85,6 +87,12 @@ const Navbar = () => {
         }
     }
 
+    const handleClick = (e) => {
+        if (isPublicRankingPage) {
+          e.preventDefault(); // 링크 이동을 막음
+        }
+      };
+
     const navbarStyle = {
         position: 'fixed',
         top: 0,
@@ -131,9 +139,9 @@ const Navbar = () => {
                     </>
                 ) : (
                 <>
-                    <Link to='/signin' className='flex-none w-28 mt-auto'>
-                        <img src={logo} className='w-full rounded-full'alt='Logo'/>
-                    </Link>
+                     <a href={isPublicRankingPage ? '#' : '/signin'} onClick={handleClick} className={`flex-none mt-auto ${isPublicRankingPage || isRankPage ? 'w-24' : 'w-28'}`}>
+                        <img src={logo} className='w-full rounded-full' alt='Logo' />
+                    </a>
                     <div className='flex items-center gap-3 md:gap-6 ml-auto'></div>
                     {/* <Link to='/signin' className='btn-dark py-2'>
                         로그인

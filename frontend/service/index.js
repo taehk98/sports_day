@@ -9,7 +9,6 @@ const axios = require("axios");
 const path = require("path");
 // const { peerProxy } = require('./peerProxy.js');
 const app = express();
-const Joi = require('joi');
 const { loginSchema, eventSchema, teamNameSchema } = require('./schema.js');
 
 const port = process.argv.length > 2 ? process.argv[2] : 3000;
@@ -138,6 +137,19 @@ apiRouter.get('/get-scores/:id', async (req, res) => {
     }
 })
 
+apiRouter.get('/get-public-data/:id', async (req, res) => {
+    const { id } = req.params;
+    const { eventName } = req.query;
+    
+    try {
+        const scores = await DB.getEventScores(eventName, id);
+        return res.status(200).send({ eventName: eventName, scores: scores, id: id });
+    } catch (error) {
+        console.error('Error fetching event data:', error);
+        return res.status(400).end();
+    }
+});
+
 // secureApiRouter verifies credentials for endpoints
 var secureApiRouter = express.Router();
 apiRouter.use(secureApiRouter);
@@ -164,17 +176,6 @@ secureApiRouter.get('/get-activityList/:id', async (req, res) => {
         res.status(500).send({ msg: 'Failed to fetch activities' });
     }
 });
-
-secureApiRouter.post('/update-snack', async (req, res) => {
-    try{
-        const { snack, teamName } = req.body;
-        authToken = req.cookies[authCookieName];
-        await DB.updateSnack(req, res, snack, teamName);
-        res.status(200).send();
-    } catch(err) {
-        res.status(400).send();
-    }
-})
 
 secureApiRouter.post('/insert-team/:id', async (req, res) => {
     const { id } = req.params;

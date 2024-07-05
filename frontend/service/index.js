@@ -10,6 +10,7 @@ const path = require("path");
 // const { peerProxy } = require('./peerProxy.js');
 const app = express();
 const Joi = require('joi');
+const { loginSchema, eventSchema, teamNameSchema } = require('./schema.js');
 
 const port = process.argv.length > 2 ? process.argv[2] : 3000;
 const authCookieName = 'token';
@@ -37,28 +38,12 @@ app.use(function (err, req, res, next) {
     res.status(500).send({ type: err.name, message: err.message });
   });
 
-const loginSchema = Joi.object({
-    id: Joi.string().required(),
-    password: Joi.string().pattern(new RegExp('^[a-zA-Z0-9]{8,}$')).required()
-});
-
-const eventSchema = Joi.object({
-    eventName: Joi.string().pattern(new RegExp('^[a-zA-Z0-9가-힣 ]+$')).required(),
-    created: Joi.string().regex(/^\d{4}\/\d{2}\/\d{2}$/).required(),
-    modified: Joi.alternatives().try(
-        Joi.string().valid('없음'), // Validating for '없음'
-        Joi.string().regex(/^\d{4}\/\d{2}\/\d{2}$/).required() // Validating for yyyy/mm/dd format
-      ).required()
-});
-
-const teamNameSchema = Joi.string().pattern(new RegExp('^[a-zA-Z0-9가-힣 ]+$')).required();
-
 apiRouter.post('/auth/create', async (req, res) => {
     const { error, value } = loginSchema.validate(req.body);
 
     if (error) {
         // 유효성 검사 실패 시 클라이언트에게 오류 응답 반환
-        return res.status(400).send({ msg: '비밀번호는 8자 이상의 영문자로 입력해주세요.', details: error.details });
+        return res.status(400).send({ msg: '\n8자 이상의 영문자와 숫자 조합으로 입력해주세요.', details: error.details });
     }
     try {
         let user = await DB.getAdmin(value.id);
@@ -90,7 +75,6 @@ apiRouter.post('/auth/login', async (req, res) => {
         // 유효성 검사 실패 시 클라이언트에게 오류 응답 반환
         return res.status(400).send({ msg: '비밀번호는 8자 이상의 문자로 입력해주세요.', details: error.details });
       }
-    
     try {
         // 사용자 조회
         const user = await DB.getAdmin(value.id);
@@ -276,43 +260,48 @@ secureApiRouter.get('/get-event-data/:id', async (req, res) => {
     try {
         const scores = await DB.getEventScores(eventName, id);
         const authToken = req.cookies[authCookieName] || null;
-        res.status(200).send({ eventName: eventName, scores: scores, access_token: authToken, id: id });
+        return res.status(200).send({ eventName: eventName, scores: scores, access_token: authToken, id: id });
     } catch (error) {
         console.error('Error fetching event data:', error);
-        res.status(400).end();
+        return res.status(400).end();
     }
 });
 
-secureApiRouter.delete('/delete-multiple-teams', async (req, res) => {
-    const teamIDs = req.body;
+secureApiRouter.delete('/delete-multiple-teams/:id', async (req, res) => {
+    const teamNames = req.body;
+    const { id } = req.params;
+    const { eventName } = req.query;
     try{
-        const scores = await DB.deleteMultipleTeams(teamIDs);
+        const scores = await DB.deleteMultipleTeams(teamNames, eventName, id);
         authToken = req.cookies[authCookieName];
-        res.status(200).send({scores: scores, access_token: authToken , id: 'admin'});
+        return res.status(200).send({eventName: eventName, scores: scores, access_token: authToken , id: id});
     } catch (error) {
         console.error(error);
-        res.status(500).send('An error occurred while trying to delete the document');
+        return res.status(500).send('An error occurred while trying to delete the document');
     }
 })
 
 secureApiRouter.put('/update-score-by-activity', async (req, res) => {
     try {
-        const { activityId, teamName, newScore } = req.body;
-        const updatedScores = await DB.updateScoresByActivity(activityId, teamName, newScore);
-        if (newScore > 15) {
-            res.status(500).send({ msg: 'Failed to update score' });
+        const { eventName } = req.query;
+        const { activityId, teamName, newScore, id } = req.body;
+        const updatedScores = await DB.updateScoresByActivity(activityId, teamName, newScore, eventName, id);
+        if (isNaN(newScore) || newScore > 100 || newScore < 0) {
+            res.status(500).send({ msg: '0부터 100사이에 있는 숫자를 입력해주세요.' });
         }
         authToken = req.cookies[authCookieName];
-        res.status(200).send({updatedScores: updatedScores , access_token: authToken , id: 'admin'});
+        res.status(200).send({updatedScores: updatedScores , access_token: authToken , id: id});
     } catch (err) {
         console.error('Error updating score by activity:', err);
         res.status(500).send({ msg: 'Failed to update score' });
     }
 });
 
-secureApiRouter.get('/teams', async (req, res) => {
+secureApiRouter.get('/teams/:id', async (req, res) => {
+    const { id } = req.params;
+    const { eventName } = req.query;
     try {
-        const teams = await DB.getTeamNamesFromScores();
+        const teams = await DB.getTeamNamesFromScores(eventName, id);
         res.status(200).send(teams);
     } catch (error) {
         console.error('Error fetching team names:', error);
@@ -337,60 +326,74 @@ secureApiRouter.get('/get-numActivity', async (req, res) => {
         res.status(500).send({ msg: 'Failed to fetch participateNum' });
     }
 });
-secureApiRouter.get('/get-score-and-participation', async (req, res) => {
+secureApiRouter.get('/get-score-and-participation/:id', async (req, res) => {
     try {
-        const { teamName, activityId } = req.query;
+        const { id } = req.params;
+        const { teamName, activityId, eventName } = req.query;
 
         if (!teamName) {
             return res.status(400).send({ msg: 'Invalid input data' });
         }
 
-        const team = await DB.getTeam(teamName);
-        console.log(team)
+        const team = await DB.getTeam(teamName, eventName, id);
+
         if (!team) {
             return res.status(404).send({ msg: 'Team not found' });
         }
 
         const score = team.activities[activityId] || 0;
         const participateNum = team.participateNum || 0; // Assuming participateNum is stored at the team level
-        const snack = team.snack;
 
-        res.status(200).send({ score, participateNum, snack });
+        res.status(200).send({ score, participateNum });
     } catch (err) {
         console.error('Error fetching score and participation:', err);
         res.status(500).send({ msg: 'Failed to fetch score and participation' });
     }
 });
 
-secureApiRouter.delete('/delete-multiple-activities', async (req, res) => {
+secureApiRouter.delete('/delete-multiple-activities/:id', async (req, res) => {
     const activityNames = req.body;
+    const { id } = req.params;
+    const { eventName } = req.query;
     try{
-        const activityList = await DB.deleteMultipleActivities(activityNames);
+        const activityList = await DB.deleteMultipleActivities(activityNames, eventName, id);
         authToken = req.cookies[authCookieName];
-        res.status(200).send({activityList: activityList , access_token: authToken , id: 'admin'});
+        const scores = await DB.getEventScores(eventName, id);
+        return res.status(200).send({eventName: eventName, activityList: activityList , scores: scores, access_token: authToken , id: id});
     }catch (error) {
         console.error(error);
-        res.status(500).send('An error occurred while trying to delete the document');
+        return res.status(500).send('An error occurred while trying to delete the document');
     }
 })
 
-secureApiRouter.post('/insert-activity', async (req, res) => {
+secureApiRouter.post('/insert-activity/:id', async (req, res) => {
+    const { id } = req.params;
+    const { eventName } = req.query;
+
+    const { error } = teamNameSchema.validate(req.body.activityName);
+    if (error) {
+        return res.status(500).send('유효한 활동 이름을 입력해주세요.');
+    }
+
     try {
         authToken = req.cookies[authCookieName];
-        const activityList = await DB.insertActivity(req.body.activityName);
-        const scores = await DB.initialScores();
-        res.status(200).send({access_token: authToken , id: 'admin', scores: scores, activityList: activityList });
+        const activityList = await DB.insertActivity(req.body.activityName, eventName, id);
+        // const scores = await DB.initialScores();
+        const scores = await DB.getEventScores(eventName, id);
+        return res.status(200).send({eventName: eventName, access_token: authToken , id: id, scores: scores, activityList: activityList });
     } catch(err) {
-        res.status(400).send(err.message);
+        return res.status(400).send(err.message);
     }
 });
 
-secureApiRouter.delete('/delete-activity/:id', async (req, res) => {
-    const { id } = req.params;
+secureApiRouter.delete('/delete-activity/:activityName', async (req, res) => {
+    const { activityName } = req.params;
+    const { id, eventName } = req.query;
     try {
-        const activityList = await DB.deleteActivity(id);
+        const activityList = await DB.deleteActivity(activityName, eventName, id);
         authToken = req.cookies[authCookieName];
-        res.status(200).send({activityList: activityList , access_token: authToken , id: 'admin'});
+        const scores = await DB.getEventScores(eventName, id);
+        res.status(200).send({eventName: eventName, activityList: activityList , scores: scores, access_token: authToken , id: id});
     } catch (error) {
         console.error(error);
         res.status(500).send('An error occurred while trying to delete the document');

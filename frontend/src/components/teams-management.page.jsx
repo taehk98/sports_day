@@ -80,7 +80,7 @@ export function TeamList() {
         let toastId = toast.loading("조를 추가중입니다.");
         let duplicatName = false;
         let error = false;
-        scores.forEach(team => {
+        rows.forEach(team => {
             if(team.teamName == teamName) {
                 toast.error('중복된 팀 아이디가 있습니다. \n다른 이름을 사용해주세요', {
                     id: toastId,
@@ -180,21 +180,22 @@ export function TeamList() {
         setIsAscending(!isAscending);
     };  
 
-    const handleCheckboxChange = (rowId) => {
+    const handleCheckboxChange = (rowTeamName) => {
         // 체크박스가 체크되었는지 여부를 확인하고 상태를 업데이트합니다.
-        if (checkedRows.includes(rowId)) {
+        if (checkedRows.includes(rowTeamName)) {
             // 이미 체크된 경우 해당 rowId를 배열에서 제거합니다.
-            setCheckedRows(checkedRows.filter(id => id !== rowId));
+            setCheckedRows(checkedRows.filter(teamName => teamName !== rowTeamName));
         } else {
             // 체크되지 않은 경우 해당 rowId를 배열에 추가합니다.
-            setCheckedRows([...checkedRows, rowId]);
+            setCheckedRows([...checkedRows, rowTeamName]);
         }
     };
 
     const deleteCheckedTeams = async () => {
-        const id = toast.loading(`선택된 조들을 삭제중입니다.`);
+        console.log(checkedRows);
+        const toastId = toast.loading(`선택된 팀들을 삭제중입니다.`);
         try {
-            const response = await fetch('/api/delete-multiple-teams' , {
+            const response = await fetch(`/api/delete-multiple-teams/${id}?eventName=${encodeURIComponent(eventName)}` , {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
@@ -203,7 +204,7 @@ export function TeamList() {
             });
 
             if (!response.ok) {
-                throw new Error('선택된 항목을 삭제하는 데 실패했습니다.');
+                throw new Error('선택된 팀들을 삭제하는 데 실패했습니다.');
             }
             const scoresAndTokenAndId = await response.json();
             storeInSession('user', JSON.stringify(scoresAndTokenAndId));
@@ -211,14 +212,14 @@ export function TeamList() {
             setUserAuth(scoresAndTokenAndId);
             setRows(scoresAndTokenAndId.scores);
             setCheckedRows([]);
-            toast.success(`선택된 조들을 삭제했습니다`, {
-                id: id,
+            toast.success(`선택된 팀들을 삭제했습니다`, {
+                id: toastId,
                 duration: 2000, // 2초 동안 표시
             });    
 
         }catch (error) {
-            toast.error('선택된 항목을 삭제하는 데 실패했습니다.', {
-                id: id,
+            toast.error('선택된 팀들을 삭제하는 데 실패했습니다.', {
+                id: toastId,
                 duration: 2000 // 1초 동안 표시
             });
           }
@@ -242,7 +243,7 @@ export function TeamList() {
 
     const confirmDeleteTeam = (teamID, teamName) => {
         confirmAlert({
-            message:  `${teamName}조를 삭제하시겠습니까?`,
+            message:  `${teamName}을(를) 삭제하시겠습니까?`,
             buttons: [
                 {
                     label: '예',
@@ -267,8 +268,8 @@ export function TeamList() {
                             name="flexCheck"
                             value=""
                             id={`flexCheck-${index}`}
-                            onChange={() => handleCheckboxChange(row._id)} // 체크박스 클릭 시 이벤트 핸들러 추가
-                            checked={checkedRows.includes(row._id)} // 체크 상태 설정
+                            onChange={() => handleCheckboxChange(row.teamName)} // 체크박스 클릭 시 이벤트 핸들러 추가
+                            checked={checkedRows.includes(row.teamName)} // 체크 상태 설정
                         />
                         </MDBListGroupItem>
                         <MDBListGroupItem className="px-3 py-1 d-flex align-items-center flex-grow-1 border-0 bg-transparent">

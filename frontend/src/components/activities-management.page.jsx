@@ -24,12 +24,12 @@ export function ActivityList() {
     const [checkedRows, setCheckedRows] = useState([]);
 
     const {
-        userAuth: { access_token, scores },
+        userAuth: { access_token, scores, id, eventName },
         setUserAuth,
     } = useContext(UserContext);
 
     async function getActivityList() {
-        await fetch(`/api/get-activityList`)
+        await fetch(`/api/get-activityList/${id}?eventName=${encodeURIComponent(eventName)}`)
             .then(response => {
                 if (!response.ok) {
                 throw new Error('Network response was not ok');
@@ -38,7 +38,8 @@ export function ActivityList() {
             })
             .then(data => {
                 // 받아온 데이터를 처리
-                setActivityList(data[0].activities);
+                setActivityList(data);
+                console.log(data);
             })
             .catch(error => {
                 // 오류 처리
@@ -60,7 +61,7 @@ export function ActivityList() {
     // insert an activity
     async function insertActivity(toastID) { 
         try {
-            const response = await fetch(`/api/insert-activity`, {
+            const response = await fetch(`/api/insert-activity/${id}?eventName=${encodeURIComponent(eventName)}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -71,7 +72,9 @@ export function ActivityList() {
             if (response.status === 200) {
                 const scoresAndTokenAndId = await response.json();
                 storeInSession('data', JSON.stringify(scoresAndTokenAndId.scores));
-                setActivityList(scoresAndTokenAndId.activityList[0].activities);
+                storeInSession('user', JSON.stringify(scoresAndTokenAndId));
+                setUserAuth(scoresAndTokenAndId);
+                setActivityList(scoresAndTokenAndId.activityList);
                 setActivityName('');
                 toast.success('활동을 추가했습니다.', {
                     id: toastID,
@@ -82,7 +85,7 @@ export function ActivityList() {
                 throw new Error('Network response was not ok');
             }
         } catch (error) {
-            toast.error('활동을 추가하는데 실패했습니다.', {
+            toast.error('활동을 추가하는데 실패했습니다.\n문자와 숫자 조합만 사용해주세요', {
                 id: toastID,
                 duration: 2000, // 3초 동안 표시
             });
@@ -90,7 +93,7 @@ export function ActivityList() {
     }
 
     const addActivity = ( async () => {
-        let id = toast.loading("활동을 추가중입니다.");
+        let toastId = toast.loading("활동을 추가중입니다.");
         let duplicateName = false;
 
         if (!activityList) {
@@ -100,7 +103,7 @@ export function ActivityList() {
         activityList.forEach(activity => {
             if(activity === activityName) {
                 toast.error('중복된 활동이 있습니다. \n다른 이름을 사용해주세요', {
-                    id: id,
+                    id: toastId,
                     duration: 2000 // 1초 동안 표시
                 });
                 duplicateName = true;
@@ -112,13 +115,13 @@ export function ActivityList() {
             return; // 함수 종료
         }
 
-        await insertActivity(id);
+        await insertActivity(toastId);
     });
 
     const deleteActivity = ( async (activityName) => {
-        const id = toast.loading(`${activityName}을(를) 삭제중입니다.`);
+        const toastId = toast.loading(`${activityName}을(를) 삭제중입니다.`);
         try {
-            const response = await fetch(`/api/delete-activity/${activityName}` , {
+            const response = await fetch(`/api/delete-activity/${activityName}?id=${encodeURIComponent(id)}&eventName=${encodeURIComponent(eventName)}` , {
                 method: 'DELETE',
             });
 
@@ -127,16 +130,17 @@ export function ActivityList() {
             }
             const scoresAndTokenAndId = await response.json();
             storeInSession('user', JSON.stringify(scoresAndTokenAndId));
+            storeInSession('data', JSON.stringify(scoresAndTokenAndId.scores));
             setUserAuth(scoresAndTokenAndId);
-            setActivityList(scoresAndTokenAndId.activityList[0].activities);
+            setActivityList(scoresAndTokenAndId.activityList);
             toast.success(`${activityName}을(를) 삭제했습니다`, {
-                id: id,
+                id: toastId,
                 duration: 2000, // 2초 동안 표시
             });    
 
         }catch (error) {
             toast.error('해당 활동 삭제에 실패했습니다.', {
-                id: id,
+                id: toastId,
                 duration: 2000 // 1초 동안 표시
             });
             console.error('Error:', error);
@@ -168,9 +172,9 @@ export function ActivityList() {
     };
 
     const deleteCheckedActivities = async () => {
-        const id = toast.loading(`선택된 활동들을 삭제중입니다.`);
+        const toastId = toast.loading(`선택된 활동들을 삭제중입니다.`);
         try {
-            const response = await fetch('/api/delete-multiple-activities' , {
+            const response = await fetch(`/api/delete-multiple-activities/${id}?eventName=${encodeURIComponent(eventName)}` , {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
@@ -179,21 +183,22 @@ export function ActivityList() {
             });
 
             if (!response.ok) {
-                throw new Error('선택된 항목을 삭제하는데 실패했습니다.');
+                throw new Error('선택된 활동들을 삭제하는데 실패했습니다.');
             }
             const scoresAndTokenAndId = await response.json();
             storeInSession('user', JSON.stringify(scoresAndTokenAndId));
+            storeInSession('data', JSON.stringify(scoresAndTokenAndId.scores));
             setUserAuth(scoresAndTokenAndId);
-            setActivityList(scoresAndTokenAndId.activityList[0].activities);
+            setActivityList(scoresAndTokenAndId.activityList);
             setCheckedRows([]);
             toast.success(`선택된 활동들을 삭제했습니다`, {
-                id: id,
+                id: toastId,
                 duration: 2000, // 2초 동안 표시
             });    
 
         }catch (error) {
             toast.error('선택된 항목을 삭제하는 데 실패했습니다.', {
-                id: id,
+                id: toastId,
                 duration: 2000 // 1초 동안 표시
             });
           }

@@ -64,7 +64,7 @@ export function Unauthenticated(props) {
     }, 1000);      
     } else {
       // const body = await response.json();
-      let message = text === "로그인" ? `로그인 실패: ${responseBody.msg}` : `아이디 생성 실패: ${responseBody.msg}`;
+      let message = text === "로그인" ? `로그인 실패: \n${responseBody.msg}` : `아이디 생성 실패: \n${responseBody.msg}`;
       toast.error(message , {
             id: id,
             duration: 2000

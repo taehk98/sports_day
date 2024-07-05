@@ -134,8 +134,39 @@ async function getEventList(userId) {
     return await eventListCollection.findOne({ id: userId });
 }
 
-async function getTeam(teamName) {
-    return await scoresCollection.findOne({ teamName: teamName });
+async function getTeam(teamName, eventName, id) {
+    try {
+        const document = await scoresCollection.findOne({
+            id: id,
+            'events': {
+                $elemMatch: {
+                    eventName: eventName
+                }
+            }
+        });
+
+        if (!document) {
+            throw new Error('해당 id, eventName를 가진 문서를 찾을 수 없습니다.');
+        }
+
+        // events 배열에서 eventName이 일치하는 요소 찾기
+        const event = document.events.find(event => event.eventName === eventName);
+
+        if (!event) {
+            throw new Error('해당 eventName을 가진 이벤트를 찾을 수 없습니다.');
+        }
+
+        const team = event.teams.find(existingTeam => existingTeam.teamName === teamName) 
+
+        if (!team) {
+            throw new Error('해당 팀을 찾을 수 없습니다.');
+        }
+        return team;
+    }
+    catch (err) {
+        console.error('팀 찾기에 실패했습니다.', err);
+        return;
+    }
 }
 
 async function insertTeam(team, eventName, id) {
@@ -306,79 +337,56 @@ async function getEventScores(eventName, id) {
 }
 
 
-async function deleteMultipleTeams(teamIDs) {
+async function deleteMultipleTeams(teamNames, eventName, id) {
     try {
-        for (let i = 0; i < teamIDs.length; i++) {
-            let objectId;
-            try {
-                objectId = new ObjectId(teamIDs[i]);
-            } catch (error) {
-                console.error(`Invalid ObjectId: ${teamIDs[i]} - ${error.message}`);
-                throw new Error(`Invalid ObjectId: ${teamIDs[i]}`);
-            }
-
-            const result = await scoresCollection.deleteOne({ _id: objectId });
+        for (let i = 0; i < teamNames.length; i++) {
+            const result = await scoresCollection.updateOne(
+                { id: id, 'events.eventName': eventName },
+                { $pull: { 'events.$.teams': { teamName: teamNames[i] } } }
+            );
              // 재시도 로직 추가
-             if (result.deletedCount === 0) {
+             if (result.modifiedCount === 0) {
                 await new Promise(resolve => setTimeout(resolve, 1000)); // 1초 대기
-                result = await scoresCollection.deleteOne({ _id: objectId });
+                const result = await scoresCollection.updateOne(
+                    { id: id, 'events.eventName': eventName },
+                    { $pull: { 'events.$.teams': { teamName: teamNames[i] } } }
+                );
             }
 
-            if (result.deletedCount === 0) {
-                console.error(`해당 조를 찾지 못했습니다: ${teamIDs[i]}`);
-                throw new Error(`해당 조를 찾지 못했습니다: ${teamIDs[i]}`);
+            if (result.modifiedCount === 0) {
+                console.error(`해당 팀을 찾지 못했습니다: ${teamNames[i]}`);
+                throw new Error(`해당 팀을 찾지 못했습니다: ${teamNames[i]}`);
             }
         }
-        return await initialScores();
+        return await getEventScores(eventName, id);
     } catch (error) {
         console.error(`팀들 삭제에 실패했습니다: ${error.message}`);
         throw new Error('팀들 삭제에 실패했습니다.');
     }
 }
 
-async function updateSnack(req, res, snackData, teamName) {
-    try {
-        // Ensure snackData is an array
-        if (!Array.isArray(snackData)) {
-            return res.status(400).json({ error: 'snackData는 배열이어야 합니다.' });
-        }
-        console.log(snackData);
-        console.log(teamName);
-        const result = await scoresCollection.updateOne(
-            { teamName: teamName },
-            { $set: { snack: snackData } }
-        );
-
-        if (result.matchedCount === 0) {
-            throw new Error(`업데이트에 실패했습니다.`);
-        } else {
-            return { message: '간식이 업데이트되었습니다.' };
-        }
-    } catch (err) {
-        console.error(err);
-        return { error: '서버 오류가 발생했습니다.' };
-    }
-}
-
-async function insertActivity(activityName) {
+async function insertActivity(activityName, eventName, id) {
     try {
         const updateResult = await scoresCollection.updateMany(
-            {},
+            { id: id, "events.eventName": eventName },
             {
-                $set: { [`activities.${activityName}`]: 0}
+                $set: { [`events.$[event].teams.$[].activities.${activityName}`]: 0 }
+            },
+            {
+                arrayFilters: [{ "event.eventName": eventName }]
             }
         )
         console.log('Update Result:', updateResult);
         console.log(`Matched ${updateResult.matchedCount} documents and modified ${updateResult.modifiedCount} documents.`);
         const insertResult = await activityListCollection.updateOne(
-            { _id: new ObjectId("6655327c3b77c61b1646dab2") },
+            { id: id, 'events.eventName': eventName },
             {
-              $push: {
-                activities: activityName
-              }
+                $push: {
+                    "events.$.activities": activityName
+                }
             }
         );
-        return await getActivityList();
+        return await getActivityList(eventName, id);
     } catch (error) {
         console.error('Error updating documents:', error);
     }
@@ -390,8 +398,7 @@ async function getActivityList(eventName, id) {
             { id: id, events: { $elemMatch: { eventName: eventName } } },
             { projection: { 'events.$': 1 } } // events 배열에서 조건에 맞는 첫 번째 요소만 반환
           );
-          
-        console.log(event);
+
         return event.events[0].activities; // Adjust the format if needed
     } catch (error) {
         console.error('Error fetching activity list:', error);
@@ -399,44 +406,73 @@ async function getActivityList(eventName, id) {
     }
 }
 
-async function deleteActivity(activityName) {
+async function deleteActivity(activityName, eventName, id) {
     try {
-        const escapedActivityName = activityName.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1");
         let result = await scoresCollection.updateMany(
-            { "activities": { $exists: true } }, // Ensure activities field exists
-            { $unset: { [`activities.${escapedActivityName}`]: "" } }
+            { id: id, 'events.eventName': eventName, "events.teams.activities": { $exists: true } },
+            { $unset: { [`events.$[].teams.$[].activities.${activityName}`]: "" } }
         );
 
         if (result.modifiedCount === 0) {
-            console.log("here");
             throw new Error(`activities 필드를 못찾았습니다: ${activityName}`);
         }
 
         result = await activityListCollection.updateOne(
-            { _id: new ObjectId("6655327c3b77c61b1646dab2") },
+            { id: id, 'events.eventName': eventName },
             {
                 $pull: {
-                    activities: activityName
+                    "events.$.activities": activityName
                 }
             }
         );
         if (result.modifiedCount === 0) {
-            console.log("here");
             throw new Error(`activities 필드를 못찾았습니다: ${activityName}`);
         }
-      return await getActivityList();
+        // update totalscore and participateNum for each team in the event when an activity is deleted
+        result = await scoresCollection.findOne(
+            { id: id, 'events.eventName': eventName },
+            { projection: { 'events.$': 1 } }
+        );
+
+        if (!result || result.events.length === 0) {
+            throw new Error(`No matching documents found for eventName: ${eventName} and id: ${id}`);
+        }
+
+        let teams = result.events[0].teams || []; // Ensure teamNames array exists
+
+        // Update the activity score
+        for (let i = 0; i < teams.length; i++) {
+            teams[i].totalScore = 0;
+            teams[i].participateNum = 0;
+            for(const activity in teams[i].activities) {
+                if(teams[i].activities[activity] !== 0){
+                    teams[i].participateNum += 1;
+                }
+                teams[i].totalScore += Number(teams[i].activities[activity]);
+            }
+        }
+        result = await scoresCollection.updateOne(
+            { id: id, 'events.eventName': eventName },
+            {
+                $set: {
+                    'events.$.teams': teams
+                }
+            }
+        );
+
+      return await getActivityList(eventName, id);
     } catch (error) {
         throw new Error('활동 삭제에 실패했습니다.');
     }
 }
 
-async function deleteMultipleActivities(activityNames) {
+async function deleteMultipleActivities(activityNames, eventName, id) {
     try {
         for (let i = 0; i < activityNames.length; i++) {
             
             let result = await scoresCollection.updateMany(
-                { "activities": { $exists: true } }, // Ensure activities field exists
-                { $unset: { [`activities.${activityNames[i]}`]: "" } }
+                { id: id, 'events.eventName': eventName, "events.teams.activities": { $exists: true } },
+                { $unset: { [`events.$[].teams.$[].activities.${activityNames[i]}`]: "" } }
             );
 
             if (result.modifiedCount === 0) {
@@ -444,10 +480,10 @@ async function deleteMultipleActivities(activityNames) {
             }
 
             result = await activityListCollection.updateOne(
-                { _id: new ObjectId("6655327c3b77c61b1646dab2") },
+                { id: id, 'events.eventName': eventName },
                 {
                     $pull: {
-                        activities: activityNames[i]
+                        "events.$.activities": activityNames[i]
                     }
                 }
             );
@@ -455,50 +491,76 @@ async function deleteMultipleActivities(activityNames) {
                 throw new Error(`activities 필드를 못찾았습니다: ${activityNames[i]}`);
             }
         }
-      return await getActivityList();
+        return await getActivityList(eventName, id);
     } catch (error) {
         throw new Error('활동 삭제에 실패했습니다.');
     }
   }
 
-async function updateScoresByActivity(activityId, teamName, newScore) {
+async function updateScoresByActivity(activityId, teamName, newScore, eventName, id) {
     try {
-        const team = await scoresCollection.findOne({ teamName: teamName });
-        if (!team) {
-            throw new Error('Team not found');
+        const result = await scoresCollection.findOne(
+            { id: id, 'events.eventName': eventName },
+            { projection: { 'events.$': 1 } }
+        );
+
+        if (result.length === 0) {
+            throw new Error(`No matching documents found for eventName: ${eventName} and id: ${id}`);
         }
+
+        const teams = result.events[0].teams || []; // Ensure teamNames array exists
+        const team = teams.find(team => team.teamName === teamName);
 
         // Update the activity score
         team.activities[activityId] = Number(newScore);
         team.totalScore = 0;
         team.participateNum = 0;
-        // console.log(team.activities)
         for(const activity in team.activities) {
             if(team.activities[activity] !== 0){
                 team.participateNum += 1;
             }
             team.totalScore += Number(team.activities[activity]);
         }
-
         // Update the document in the database
         await scoresCollection.updateOne(
-            { teamName: teamName },
-            { $set: { activities: team.activities, totalScore: team.totalScore, participateNum:team.participateNum }, }
+            { id: id, 'events.eventName': eventName, 'events.teams.teamName': teamName },
+            {
+                $set: {
+                    'events.$[event].teams.$[team].activities': team.activities,
+                    'events.$[event].teams.$[team].totalScore': team.totalScore,
+                    'events.$[event].teams.$[team].participateNum': team.participateNum
+                }
+            },
+            {
+                arrayFilters: [
+                    { 'event.eventName': eventName },
+                    { 'team.teamName': teamName }
+                ]
+            }
         );
 
         // Return the updated scores
-        return await initialScores();
+        return await getEventScores(eventName, id);
     } catch (err) {
         console.error('Failed to update scores by activity:', err);
         throw err;
     }
 }
 
-async function getTeamNamesFromScores() {
+async function getTeamNamesFromScores(eventName, id) {
     try {
-        const teamNames = await scoresCollection.distinct('teamName');
-        // console.log(teamNames);
-        return teamNames.map(teamName => ({ teamName })); // Adjust the format if needed
+        const result = await scoresCollection.findOne(
+            { id: id, 'events.eventName': eventName },
+            { projection: { 'events.$': 1 } }
+        );
+
+        if (result.length === 0) {
+            throw new Error(`No matching documents found for eventName: ${eventName} and id: ${id}`);
+        }
+
+        const teams = result.events[0].teams || []; // Ensure teamNames array exists
+        const teamNames = teams.map(team => team.teamName);
+        return teamNames;
     } catch (error) {
         console.error('Error fetching team names from scores:', error);
         throw error;
@@ -512,7 +574,6 @@ async function getActivities(eventName, id) {
             { projection: { 'events.$': 1 } } // events 배열에서 조건에 맞는 첫 번째 요소만 반환
           );
           
-        // console.log(activities);
         return event.activities.map(activity => ({ activity })); // Adjust the format if needed
     } catch (error) {
         console.error('Error fetching team names from scores:', error);
@@ -551,7 +612,6 @@ module.exports = {
     deleteActivity,
     deleteMultipleActivities,
     deleteUserToken,
-    updateSnack,
     insertEvent,
     getEventScores
 };

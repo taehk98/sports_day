@@ -22,40 +22,28 @@ const InsertScores = () => {
   const [teamName, setTeamName] = useState('');
   const [currentScore, setCurrentScore] = useState(null);
   const [participateNum, setParticipateNum] = useState(null);
-  const [snackData, setSnackData] = useState([]);
-  const [showSnack, setShowSnack] = useState(false);
-  const [snackTeamName, setSnackTeamName] = useState('');
 
   const {
-    userAuth: { access_token },
+    userAuth: { access_token, id, eventName},
     setUserAuth,
   } = useContext(UserContext);
 
 
-  async function fetchScoreAndParticipation(teamNameForSnack=null) {
-    if(teamNameForSnack) {
-        setShowSnack(true);
-        setSnackTeamName(teamNameForSnack);
-    } else {
-        setShowSnack(false);
-        teamNameForSnack = teamName;
-    }
+  async function fetchScoreAndParticipation() {
     try {
-        const response = await fetch(`/api/get-score-and-participation?teamName=${teamNameForSnack}&activityId=${activityId}`);
+        const response = await fetch(`/api/get-score-and-participation/${id}?teamName=${teamName}&activityId=${activityId}&eventName=${encodeURIComponent(eventName)}`);
         if (response.ok) {
             const data = await response.json();
             if(activityId !== '' && activityId !== undefined && activityId !== null) {
                 setCurrentScore(data.score);
             }
             setParticipateNum(data.participateNum);
-            setSnackData(data.snack);
-            console.log(data.snack);
             toast.success('데이터를 가져왔습니다.', { duration: 1000 });
         } else {
             if(activityId !== '' && activityId !== undefined && activityId !== null) {
                 toast.error('팀을 확인해주세요.', { duration: 2000 });
             }else {
-                toast.error('조와 활동을 확인해주세요.', { duration: 2000 });
+                toast.error('팀와 활동을 확인해주세요.', { duration: 2000 });
             }
             
         }
@@ -66,14 +54,14 @@ const InsertScores = () => {
   }
 
   async function updateScores(newScore, activityId, teamName) {
-    if (isNaN(newScore) || newScore < 0 || newScore > 15) {
-        toast.error('0부터 15 사이의 숫자를 기입해주세요', {
+    if (isNaN(newScore) || newScore < 0 || newScore > 100) {
+        toast.error('0부터 100 사이의 숫자를 기입해주세요', {
             duration: 2000
         });
         return;
     }
     try {
-        const response = await fetch('/api/update-score-by-activity', {
+        const response = await fetch(`/api/update-score-by-activity?eventName=${encodeURIComponent(eventName)}`, {
             method: 'PUT',
             headers: {
             'Content-Type': 'application/json'
@@ -81,7 +69,8 @@ const InsertScores = () => {
             body: JSON.stringify({
             activityId,
             teamName,
-            newScore
+            newScore,
+            id
             })
         });
 
@@ -111,43 +100,6 @@ const InsertScores = () => {
     }
   };
 
-  const handleCheckCircle = async (index) => {
-    const updatedSnackData = [...snackData];
-    updatedSnackData[index] = !updatedSnackData[index];
-
-    setSnackData(updatedSnackData);
-  }
-
-  const handleSnackButton = async () => {
-    const id = toast.loading('업데이트 중입니다.');
-    try {
-        const response = await fetch('/api/update-snack', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            snack: snackData,
-            teamName: snackTeamName,
-          })
-        });
-  
-        if (response.ok) {
-          toast.success('업데이트 되었습니다.', {
-            id: id,
-            duration: 2000,
-          });
-        }else {
-            throw new Error(`업데이트에 실패했습니다.`);
-        }
-      } catch (error) {
-        toast.error('업데이트에 실패했습니다.', {
-            id: id,
-            duration: 2000,
-        });
-      }
-  };
-
   return (
     <>
       {access_token && (
@@ -164,15 +116,15 @@ const InsertScores = () => {
                       <MDBCardBody>
                         <div className="d-flex flex-column align-items-center w-full">
                           <Dropdown
-                            endpoint="/api/teams"
-                            placeholder="조를 선택하세요."
+                            endpoint={`/api/teams/${id}?eventName=${encodeURIComponent(eventName)}`}
+                            placeholder="팀을 선택하세요."
                             style={{ fontSize: '16px'}}
                             onChange={(selectedOption) => setTeamName(selectedOption.value)}
                           />
                         </div>
                         <div className="d-flex flex-column align-items-center mt-2 w-full">
                           <Dropdown
-                            endpoint="/api/get-activities"
+                            endpoint={`/api/get-activityList/${id}?eventName=${encodeURIComponent(eventName)}`}
                             placeholder="활동을 선택하세요."
                             style={{ fontSize: '16px'}}
                             onChange={(selectedOption) => setActivityId(selectedOption.value)}
@@ -211,65 +163,6 @@ const InsertScores = () => {
                           </form>
                         </div>
                       </MDBCardBody>
-                    </MDBCard>
-                  </div>
-                </MDBCardBody>
-              </MDBCard>
-            </MDBCol>
-          </MDBRow>
-          <MDBRow className={`d-flex justify-content-center mt-6 ${showSnack ? 'mb-2' : 'mb-2'}`}>
-            <MDBCol className="w-full">
-              <MDBCard style={{ borderRadius: ".75rem", backgroundColor: "#FFE6E6" }} className="w-full">
-                <MDBCardBody className="py-2 px-3 px-md-5">
-                  <p className="text-center py-2">
-                    <u className='font-bold text-3xl no-underline'>간식 관리</u>
-                  </p>
-                  <div className="pb-1">
-                    <MDBCard className="w-full">
-                        <MDBCardBody>
-                        <div className="d-flex flex-column align-items-center w-full">
-                          <Dropdown
-                            endpoint="/api/teams"
-                            placeholder="조를 선택하세요."
-                            style={{ fontSize: '16px'}}
-                            custom={{ enabled: true }}
-                            onChange={(selectedOption) => fetchScoreAndParticipation(selectedOption.value)}
-                          />
-                        </div>
-                            <div className="flex justify-content-center py-2 pt-3">
-                            {/* <button onClick={fetchScoreAndParticipation} className="md:w-48 bg-ppink text-white px-3 py-2 rounded hover:bg-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-opacity-50">
-                                조회
-                            </button> */}
-                            </div>
-                            {participateNum !== null && showSnack !== false && (
-                                <div className="text-center w-full">
-                                    <p className="text-xl font-semibold mb-2">참여 활동 수:</p>
-                                    <div className="bg-gray-100 rounded-lg p-2 mx-auto w-32">
-                                        <p className="text-2xl text-pink-500">{participateNum}</p>
-                                    </div>
-                                </div>
-                            )}  
-                            {participateNum !== null && showSnack && (
-                                <div className="d-flex flex-column align-items-center">
-                                <div className='flex items-center justify-center px-6 py-2'>
-                                    {snackData.map((snack, index) => (
-                                    <div key={index} className="relative">
-                                        <FontAwesomeIcon
-                                        icon={snack ? faCircleCheck : faCircle}
-                                        className="text-green-500 text-3xl m-2"
-                                        onClick={() => handleCheckCircle(index)}
-                                        />
-                                    </div>
-                                    ))}
-                                </div>
-                                <div className='flex justify-content-center mt-2'>
-                                    <button type="submit" onClick={() => handleSnackButton()} className="md:w-48 bg-ppink text-white px-3 py-2 rounded hover:bg-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-opacity-50 mt-2">
-                                    간식 현황 업데이트
-                                    </button>
-                                </div>
-                                </div>
-                            )}
-                        </MDBCardBody>
                     </MDBCard>
                   </div>
                 </MDBCardBody>

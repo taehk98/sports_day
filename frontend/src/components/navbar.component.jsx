@@ -118,7 +118,7 @@ const Navbar = () => {
                     </>
                 ) : access_token && location.pathname === '/events' ? (
                     <>
-                        <Link to='/' className='flex-none w-24 mt-auto'>
+                        <Link to='/signin' className='flex-none w-24 mt-auto'>
                             <img src={logo} className='w-full rounded-full'alt='Logo'/>
                         </Link>
                         <div className='flex items-center gap-3 md:gap-6 ml-auto'></div>
@@ -131,13 +131,13 @@ const Navbar = () => {
                     </>
                 ) : (
                 <>
-                    <Link to='/' className='flex-none w-24 mt-auto'>
+                    <Link to='/signin' className='flex-none w-28 mt-auto'>
                         <img src={logo} className='w-full rounded-full'alt='Logo'/>
                     </Link>
                     <div className='flex items-center gap-3 md:gap-6 ml-auto'></div>
-                    <Link to='/signin' className='btn-dark py-2'>
+                    {/* <Link to='/signin' className='btn-dark py-2'>
                         로그인
-                    </Link>
+                    </Link> */}
                 </>
                 )}
             </nav>

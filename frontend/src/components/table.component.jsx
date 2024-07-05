@@ -24,7 +24,7 @@ export function CollapsibleTable() {
     });
 
     const {
-        userAuth: { id, eventName} ,
+        userAuth: { id, eventName } ,
         setUserAuth,
     } = useContext(UserContext);
 
@@ -65,14 +65,14 @@ export function CollapsibleTable() {
           if (!response.ok) {
             throw new Error('행사 데이터를 가져오는데 실패했습니다.');
           }
-      
-          const eventData = await response.json();
-          console.log(eventData)
-          storeInSession('user', JSON.stringify(eventData));
-          storeInSession('data', JSON.stringify(eventData.scores));
-          setScores(scoresAndTokenAndId.scores)
-          setRows(scoresAndTokenAndId.scores);
-
+          if(response.status === 200){
+            const eventData = await response.json();
+            console.log(eventData)
+            storeInSession('user', JSON.stringify(eventData));
+            storeInSession('data', JSON.stringify(eventData.scores));
+            setScores(eventData.scores)
+            setRows(eventData.scores);
+          }
           toast.success('순위를 가져왔습니다.', {
             id: toastId,
             duration: 1000, // 2초 동안 표시

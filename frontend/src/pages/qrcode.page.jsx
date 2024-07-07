@@ -15,7 +15,7 @@ const QrCodePage = () => {
 
   useEffect(() => {
     if (id && eventName) {
-      setUrl(`http://localhost:5173/ranking/${id}?eventName=${encodeURIComponent(eventName)}`);
+      setUrl(`http://fsykorea.click/ranking/${id}?eventName=${encodeURIComponent(eventName)}`);
     } else {
       toast.error('행사 혹은 아이디를 확인해주세요.', {
         duration: 2000, // 2초 동안 표시
@@ -61,11 +61,11 @@ const QrCodePage = () => {
     }
   };
 
-  const handleDownload = () => {
-    if (qrCodeInstance) {
-      qrCodeInstance.download({ name: "qr-code", extension: "png" });
-    }
-  };
+  // const handleDownload = () => {
+  //   if (qrCodeInstance) {
+  //     qrCodeInstance.download({ name: "qr-code", extension: "png" });
+  //   }
+  // };
 
   return (
     <div className="max-w-md mx-auto my-8 p-6 bg-white shadow-md rounded-xl">
@@ -81,12 +81,12 @@ const QrCodePage = () => {
         <div className="flex justify-center items-center flex-col">
           <div ref={qrCodeRef}></div>
           <p className="mt-4">위의 QR 코드를 스캔하면 접속할 수 있습니다.</p>
-          <button
+          {/* <button
             className="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md"
             onClick={handleDownload}
           >
             QR 코드 다운로드
-          </button>
+          </button> */}
         </div>
       )}
     </div>

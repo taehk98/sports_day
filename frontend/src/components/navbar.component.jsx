@@ -126,7 +126,7 @@ const Navbar = () => {
                     </>
                 ) : access_token && location.pathname === '/events' ? (
                     <>
-                        <Link to='/signin' className='flex-none w-20 mt-auto'>
+                        <Link to='/' className='flex-none w-20 mt-auto'>
                             <img src={logo} className='w-full rounded-full'alt='Logo'/>
                         </Link>
                         <div className='flex items-center gap-3 md:gap-6 ml-auto'></div>
@@ -139,7 +139,7 @@ const Navbar = () => {
                     </>
                 ) : (
                 <>
-                     <a href={isPublicRankingPage ? '#' : '/signin'} onClick={handleClick} className={`flex-none mt-auto w-20`}>
+                     <a href={isPublicRankingPage ? '#' : '/'} onClick={handleClick} className={`flex-none mt-auto w-20`}>
                         <img src={logo} className='w-full rounded-full' alt='Logo' />
                     </a>
                     <div className='flex items-center gap-3 md:gap-6 ml-auto'></div>

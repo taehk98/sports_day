@@ -1,7 +1,7 @@
 const Joi = require('joi');
 
 const loginSchema = Joi.object({
-  id: Joi.string().required(),
+  id: Joi.string().pattern(new RegExp('^[a-zA-Z0-9]{8,}$')).required(),
   password: Joi.string().pattern(new RegExp('^[a-zA-Z0-9]{8,}$')).required()
 });
 

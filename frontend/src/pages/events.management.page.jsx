@@ -236,11 +236,12 @@ const getEventData = async (eventName) => {
             <MDBListGroupItem 
               key={index} 
               className={`d-flex px-4 justify-content-between align-items-center hover:bg-lightpink cursor-pointer `}
+              onClick={() => getEventData(event.eventName)}
             >
-              <div onClick={()=> getEventData(event.eventName)}>
+              <div>
                 <div className='fw-bold'>{event.eventName}</div>
                 <div className='text-muted'>생성일: {event.created}</div>
-                <div className='text-muted'>최근 수정일: {event.modified}</div>
+                {/* <div className='text-muted'>최근 수정일: {event.modified}</div> */}
               </div>
               
               <div className='d-flex align-items-center pl-0.5'>
@@ -251,7 +252,7 @@ const getEventData = async (eventName) => {
                     tag="a"
                     wrapperProps={{ href: "#!" }}
                 >
-                    <MDBIcon fas icon="trash-alt" style={{ color: "#D982BA", position: 'relative', top: '-2px' }} onClick={() => confirmDeleteEvent(event.eventName)}/>
+                    <MDBIcon fas icon="trash-alt" style={{ color: "#D982BA", position: 'relative', top: '-2px' }} onClick={(e) => { e.stopPropagation(); confirmDeleteEvent(event.eventName); }}/>
                 </MDBTooltip>
             </div>
             </MDBListGroupItem>

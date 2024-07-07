@@ -119,7 +119,6 @@ export function TeamList() {
         if (error) {
             return; // 함수 종료
         }
-        console.log(activityList);
         if (!Array.isArray(activityList) && Object.keys(activityList).length > 0) {
             activityList[0].activities.forEach(activity => {
                 activitiesObject[activity] = 0;
@@ -194,7 +193,6 @@ export function TeamList() {
     };
 
     const deleteCheckedTeams = async () => {
-        console.log(checkedRows);
         const toastId = toast.loading(`선택된 팀들을 삭제중입니다.`);
         try {
             const response = await fetch(`/api/delete-multiple-teams/${id}?eventName=${encodeURIComponent(eventName)}` , {

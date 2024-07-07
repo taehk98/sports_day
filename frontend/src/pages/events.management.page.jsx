@@ -47,7 +47,6 @@ const EventList = () => {
       // storeInSession('user', JSON.stringify(eventData));
       // storeInSession('data', JSON.stringify(eventData.scores));
       setRows(eventData.eventList.events || []);
-      console.log(eventData)
 
       toast.success('행사 리스트를 가져왔습니다.', {
         id: toastId,
@@ -146,7 +145,6 @@ const EventList = () => {
 
 const deleteEvent = ( async (eventName) => {
   const toastId = toast.loading(`${eventName}을(를) 삭제중입니다.`);
-  console.log(eventName)
   try {
       const response = await fetch(`/api/delete-event/${id}?eventName=${encodeURIComponent(eventName)}` , {
           method: 'DELETE',
@@ -185,7 +183,6 @@ const getEventData = async (eventName) => {
     }
 
     const eventData = await response.json();
-    console.log(eventData)
     storeInSession('user', JSON.stringify(eventData));
     storeInSession('data', JSON.stringify(eventData.scores));
     setUserAuth(eventData);

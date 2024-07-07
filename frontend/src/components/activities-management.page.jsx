@@ -39,7 +39,6 @@ export function ActivityList() {
             .then(data => {
                 // 받아온 데이터를 처리
                 setActivityList(data);
-                console.log(data);
             })
             .catch(error => {
                 // 오류 처리

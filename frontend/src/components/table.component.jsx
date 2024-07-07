@@ -67,7 +67,6 @@ export function CollapsibleTable() {
           }
           if(response.status === 200){
             const eventData = await response.json();
-            console.log(eventData)
             storeInSession('user', JSON.stringify(eventData));
             storeInSession('data', JSON.stringify(eventData.scores));
             setScores(eventData.scores)

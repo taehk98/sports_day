@@ -3,10 +3,8 @@ import React from 'react';
 import { createContext, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { lookInSession } from './common/session';
-import HomePage from './pages/home.page';
 import PageNotFound from './pages/404.page';
 import Navbar from './components/navbar.component';
-import MapPage from './pages/map.page.jsx';
 import QrCodePage from './pages/qrcode.page.jsx';
 import {CollapsibleTable} from './components/table.component.jsx';
 import {Unauthenticated} from './login/unauthenticated.jsx';
@@ -40,11 +38,8 @@ function App() {
     <UserContext.Provider value={{ userAuth, setUserAuth }}>
         <Routes>
           <Route path='/' element={<Navbar />}>
-            <Route path='/public' element={<HomePage />} />
             <Route path='/qrcode' element={<QrCodePage />} />
-            <Route path='/map' element={<MapPage />} />
             <Route path="ranking/:id" element={<Ranking />} />
-            {/* <Route path='/signin' element={<Unauthenticated />} /> */}
             <Route index element={<Unauthenticated />} />
             <Route path='/rank' element={<CollapsibleTable />} />
             <Route path='/team' element={<TeamList/>}/>

@@ -42,32 +42,36 @@ export function Unauthenticated(props) {
   }
 
   async function loginOrCreate(endpoint, formData, id, text) {
-    const response = await fetch(endpoint, {
-      method: 'post',
-      body: JSON.stringify(formData),
-      headers: {
-        'Content-type': 'application/json; charset=UTF-8',
-      },
-    });
-    const responseBody = await response.json();
-
-    if (response?.status === 200) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'post',
+        body: JSON.stringify(formData),
+        headers: {
+          'Content-type': 'application/json; charset=UTF-8',
+        },
+      });
+  
+      const responseBody = await response.json();
+  
+      if (response?.status === 200) {
         const scoresAndTokenAndId = responseBody;
         let msg = text === "로그인" ? "로그인 성공" : "아이디 생성 성공";
         toast.success(msg, {
-            id: id,
-            duration: 1000
-    });
-    setTimeout(() => {
-        storeInSession('user', JSON.stringify(scoresAndTokenAndId));
-        setUserAuth(scoresAndTokenAndId);
-    }, 1000);      
-    } else {
-      // const body = await response.json();
-      let message = text === "로그인" ? `로그인 실패: \n${responseBody.msg}` : `아이디 생성 실패: \n${responseBody.msg}`;
-      toast.error(message , {
-            id: id,
-            duration: 2000
+          id: id,
+          duration: 1000
+        });
+        setTimeout(() => {
+          storeInSession('user', JSON.stringify(scoresAndTokenAndId));
+          setUserAuth(scoresAndTokenAndId);
+        }, 1000);
+      } else {
+        throw new Error(responseBody.msg);
+      }
+    } catch (error) {
+      let message = text === "로그인" ? '로그인 중 오류가 발생했습니다.' : '아이디 생성 중 오류가 발생했습니다.';
+      toast.error(`${message} \n${error.message}`, {
+        id: id,
+        duration: 2000
       });
     }
   }

@@ -85,8 +85,9 @@ const QrCodePage = () => {
             className="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md"
             onClick={handleDownload}
           >
-            QR 코드 다운로드
+            QR 코드 다운로드 
           </button>
+          <p className="mt-4">* 모바일에서 다운로드가 되지 않을 경우 브라우저에서 직접 접속해보세요.</p>
         </div>
       )}
     </div>

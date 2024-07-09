@@ -20,7 +20,7 @@ const Navbar = () => {
     const isRankPage = location.pathname.includes('/rank');
     
     const {
-        userAuth: { access_token },
+        userAuth: { access_token, id },
         setUserAuth,
     } = useContext(UserContext);
 
@@ -45,7 +45,7 @@ const Navbar = () => {
 
     const signOutUser = async () => {
         try {
-            const response = await fetch('/api/auth/logout', {
+            const response = await fetch(`/api/auth/logout/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json; charset=UTF-8',

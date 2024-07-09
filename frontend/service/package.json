@@ -5,6 +5,7 @@
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "firebase-admin": "^12.2.0",
     "joi": "^17.13.3",
     "mongodb": "^6.6.1",
     "uuid": "^9.0.1"

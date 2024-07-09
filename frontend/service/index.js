@@ -1,12 +1,13 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
-const { ObjectId } = require('mongodb');
 const { v4: uuidv4 } = require('uuid');
 const DB = require('./database.js');
 const cors = require('cors');
-const axios = require("axios");
 const path = require("path");
+const admin = require('firebase-admin');
+const serviceAccount = require('./sportsday-428323-firebase-adminsdk-tec1p-fbbf21013c.json');
+const { getAuth } = require('firebase-admin/auth');
 // const { peerProxy } = require('./peerProxy.js');
 const app = express();
 const { loginSchema, eventSchema, teamNameSchema } = require('./schema.js');
@@ -15,6 +16,10 @@ const port = process.argv.length > 2 ? process.argv[2] : 3000;
 const authCookieName = 'token';
 let scores = [];
 let userID = '';
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
 
 
 app.use(express.json());
@@ -41,8 +46,9 @@ apiRouter.post('/auth/create', async (req, res) => {
     const { error, value } = loginSchema.validate(req.body);
 
     if (error) {
-        // 유효성 검사 실패 시 클라이언트에게 오류 응답 반환
-        return res.status(400).send({ msg: '\n8자 이상의 영문자와 숫자 조합으로 입력해주세요.', details: error.details });
+        // Joi 유효성 검사 실패 시 클라이언트에게 오류 응답 반환
+        const errorMessage = error.details.map(detail => detail.message.replace(/"/g, '')).join(', ');
+        return res.status(400).send({ msg: errorMessage });
     }
     try {
         let user = await DB.getAdmin(value.id);
@@ -51,7 +57,7 @@ apiRouter.post('/auth/create', async (req, res) => {
             return res.status(409).send({ msg: '같은 아이디의 유저가 이미 존재합니다.' });
         } 
     
-        user = await DB.createUser(value.id, value.password);
+        user = await DB.createUser(value.id, value.password, false);
         // Set the cookie
         const eventList = await DB.getEventList(value.id);
         const scores = await DB.initialScores();
@@ -83,6 +89,11 @@ apiRouter.post('/auth/login', async (req, res) => {
             return res.status(401).send({ msg: '로그인 실패: 아이디 또는 비밀번호를 다시 확인해주세요.' });
         }
 
+        // Check if user signed up with google
+        if(user.google_login) {
+            return res.status(401).send({ msg: '로그인 실패: 이 계정은 구글 로그인을 통해 로그인해야 합니다.' });
+        }
+
         // 비밀번호 비교
         const passwordMatch = await bcrypt.compare(value.password, user.password);
 
@@ -91,24 +102,25 @@ apiRouter.post('/auth/login', async (req, res) => {
         }
 
         // 인증 성공 시 초기 점수 및 액세스 토큰 생성 및 전송
-        const scores = await DB.initialScores();
         const accessToken = uuidv4();
         setAuthCookie(res, accessToken);
         await DB.setAdminToken(value.id, accessToken);
 
-        return res.status(200).send({ scores, eventList: eventList, access_token: accessToken, id: value.id });
+        return res.status(200).send({ eventList: eventList, access_token: accessToken, id: value.id });
     } catch (err) {
         console.error('로그인 중 오류:', err);
         return res.status(500).send({ msg: '서버 오류: 로그인을 처리하는 도중에 문제가 발생했습니다.' });
     }
 });
 
-  // DeleteAuth token if stored in cookie
-apiRouter.delete('/auth/logout', async (req, res) => {
+// DeleteAuth token if stored in cookie
+apiRouter.delete('/auth/logout/:id', async (req, res) => {
     const authToken = req.cookies[authCookieName];
+    const { id } = req.params;
     try {
+        const user = await DB.getAdmin(id);
         const tokenRemoved = await DB.deleteUserToken(authToken);
-        if (tokenRemoved) {
+        if (tokenRemoved || user.google_login) {
             res.clearCookie(authCookieName);
             userID = null;
             res.status(204).end();
@@ -120,6 +132,46 @@ apiRouter.delete('/auth/logout', async (req, res) => {
         res.status(400).send({ msg: '로그아웃 중 오류가 발생했습니다.' });
     }
 });
+// Google Auth
+apiRouter.post('/google-auth', async (req, res) => {
+    let { access_token } = req.body;
+  
+    getAuth()
+        .verifyIdToken(access_token)
+        .then(async (decodedUser) => {
+            let { email } = decodedUser;
+
+            // Check if user exists
+            let user = await DB.getAdmin(email);
+
+            if (user) {
+            // Check if user signed up with google
+                if (!user.google_login) {
+                    return res.status(403).json({
+                    error:
+                        'This email was signed up without google auth. Please log in with password to access the account',
+                    });
+                }
+            } else {
+                // Create user if not exists
+                user = await DB.createUser(email, 'no_password', true);
+            }
+
+            // Initial Setting for the event page
+            const eventList = await DB.getEventList(email);
+            // Set the cookie
+            setAuthCookie(res, access_token);
+
+            return res.status(200).send({ eventList: eventList, access_token: access_token, id: email });
+        })
+        .catch((err) => {
+            return res.status(500).json({
+                error:
+                'Failed to authenticate you with google. Try with some other Google account',
+            });
+        });
+});
+
 
 apiRouter.get('/get-scores/:id', async (req, res) => {
     const { id } = req.params;
@@ -156,8 +208,7 @@ apiRouter.use(secureApiRouter);
 
 secureApiRouter.use(async (req, res, next) => {
     authToken = req.cookies[authCookieName];
-    const user = await DB.getUserByToken(authToken);
-    if (user) {
+    if (authToken) {
         next();
     } else {
         res.status(401).send({ msg: 'Unauthorized' });
@@ -233,6 +284,7 @@ secureApiRouter.post('/insert-event', async (req, res) => {
 
     try {
         authToken = req.cookies[authCookieName];
+        console.log(req.body.id);
         const eventList = await DB.insertEvent(value, req.body.id );
         return res.status(200).send({eventList: eventList, access_token: authToken , id: req.body.id});
     } catch(err) {
@@ -457,5 +509,6 @@ function setAuthCookie(res, authToken) {
       secure: false,
       httpOnly: true,
       sameSite: 'strict',
+      maxAge: 1000 * 60 * 60, // 1 hour
     });
   }

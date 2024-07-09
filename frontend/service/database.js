@@ -57,17 +57,31 @@ async function setAdminToken(id, token) {
     
 }
 
-async function createUser(id, password) {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = {
-        id: id,
-        password: hashedPassword,
-        token: [],
-    };
+async function createUser(id, password, google_login) {
+    let user = {}
+    if(google_login){
+        user = {
+            // for google login user id is email
+            id: id,
+            password: "",
+            google_login: true,
+            token: [],
+        };
+    }else {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        user = {
+            id: id,
+            password: hashedPassword,
+            google_login: false,
+            token: [],
+        };
+    }
+    
     const events = {
         id: id,
         events: []
     }
+
     const scores = {
         id: id,
         events: []
@@ -241,45 +255,56 @@ async function deleteTeam(teamName, eventName, id) {
 
 async function deleteEvent(eventName, id) {
     try {
-      let result = await eventListCollection.updateOne(
-        { id: id },
-        { $pull: { events: { eventName: eventName } } }
-    );
-      // 재시도 로직 추가
-      if (result.modifiedCount === 0) {
-        // console.warn(`Document not found on first try for _id: ${teamID}. Retrying...`);
-        await new Promise(resolve => setTimeout(resolve, 1000)); // 1초 대기
-        result = await eventListCollection.updateOne(
+        let result = await eventListCollection.updateOne(
             { id: id },
             { $pull: { events: { eventName: eventName } } }
         );
-    }
+        // 재시도 로직 추가
+        if (result.modifiedCount === 0) {
+        // console.warn(`Document not found on first try for _id: ${teamID}. Retrying...`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // 1초 대기
+            result = await eventListCollection.updateOne(
+                { id: id },
+                { $pull: { events: { eventName: eventName } } }
+            );
+        }       
+        if (result.modifiedCount === 0) {
+            console.error(`해당 행사를 삭제하지 못했습니다: ${eventName}`);
+            throw new Error(`해당 행사를 삭제하지 못했습니다: ${eventName}`);
+        }
 
-    if (result.modifiedCount === 0) {
-        console.error(`해당 행사를 삭제하지 못했습니다: ${eventName}`);
-        throw new Error(`해당 행사를 삭제하지 못했습니다: ${eventName}`);
-    }
-    result = await scoresCollection.updateOne(
-        { id: id },
-        { $pull: { events: { eventName: eventName } } }
-    );
+        result = await activityListCollection.updateOne(
+            { id: id },
+            { $pull: { events: { eventName: eventName } } }
+        );
 
-    if (result.modifiedCount === 0) {
-        console.error(`해당 행사를 삭제하지 못했습니다: ${eventName}`);
-        throw new Error(`해당 행사를 삭제하지 못했습니다: ${eventName}`);
-    }
+        if (result.modifiedCount === 0) {
+            console.error(`해당 행사를 삭제하지 못했습니다: ${eventName}`);
+            throw new Error(`해당 행사를 삭제하지 못했습니다: ${eventName}`);
+        }
+        
+        result = await scoresCollection.updateOne(
+            { id: id },
+            { $pull: { events: { eventName: eventName } } }
+        );
 
-      return await getEventList(id);
+        if (result.modifiedCount === 0) {
+            console.error(`해당 행사를 삭제하지 못했습니다: ${eventName}`);
+            throw new Error(`해당 행사를 삭제하지 못했습니다: ${eventName}`);
+        }
+
+        return await getEventList(id);
     } catch (error) {
         throw new Error('행사 삭제에 실패했습니다.');
     }
 }
 
 async function insertEvent(event, id) {
+    console.log(id);
     try {
         // 팀 이름 중복 확인
         const eventList = await eventListCollection.findOne({ id: id });
-        if (eventList.events.includes(event.eventName)) {
+        if (eventList.events && eventList.events.includes(event.eventName)) {
             throw new Error('팀 이름이 이미 존재합니다.');
         }
         await eventListCollection.updateOne(

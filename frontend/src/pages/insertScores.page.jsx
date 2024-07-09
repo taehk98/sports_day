@@ -30,6 +30,11 @@ const InsertScores = () => {
 
 
   async function fetchScoreAndParticipation() {
+    if(activityId === '' || activityId === undefined || activityId === null || 
+      teamName === '' || teamName === undefined || teamName === null) {
+        toast.error('팀과 활동을 선택해주세요.', { duration: 2000 });
+        return;
+    }
     try {
         const response = await fetch(`/api/get-score-and-participation/${id}?teamName=${teamName}&activityId=${activityId}&eventName=${encodeURIComponent(eventName)}`);
         if (response.ok) {
@@ -90,6 +95,11 @@ const InsertScores = () => {
 
   const handleAddScore = (e) => {
     e.preventDefault();
+    if(activityId === '' || activityId === undefined || activityId === null || 
+      teamName === '' || teamName === undefined || teamName === null) {
+        toast.error('팀과 활동을 선택해주세요.', { duration: 2000 });
+        return;
+    }
     if (score.trim() && activityId && teamName) {
       updateScores(score, activityId, teamName);
       setScore('');

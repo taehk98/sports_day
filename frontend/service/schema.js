@@ -1,9 +1,24 @@
 const Joi = require('joi');
 
 const loginSchema = Joi.object({
-  id: Joi.string().pattern(new RegExp('^[a-zA-Z0-9]{8,}$')).required(),
-  password: Joi.string().pattern(new RegExp('^[a-zA-Z0-9]{8,}$')).required()
+  id: Joi.string()
+    .pattern(new RegExp('^[a-zA-Z0-9]{8,}$'))
+    .required()
+    .messages({
+      'string.pattern.base': '아이디는 8자 이상의 영문 대소문자와 숫자로 이루어져야 합니다.',
+      'any.required': '아이디는 필수 입력 항목입니다.'
+    }),
+  password: Joi.string()
+    .pattern(new RegExp('^[a-zA-Z0-9]{8,}$'))
+    .required()
+    .messages({
+      'string.pattern.base': '비밀번호는 8자 이상의 영문 대소문자와 숫자로 이루어져야 합니다.',
+      'any.required': '비밀번호는 필수 입력 항목입니다.'
+    }),
 });
+//.pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*]).{8,}$'))
+//'string.pattern.base': '비밀번호는 최소 8자 이상이어야 하며, 대문자, 소문자, 숫자, 특수문자를 모두 포함해야 합니다.',
+
 
 const eventSchema = Joi.object({
   eventName: Joi.string().pattern(new RegExp('^[a-zA-Z0-9가-힣 ]+$')).required(),

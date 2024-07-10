@@ -134,7 +134,7 @@ export function Unauthenticated(props) {
             </button>
           </div>
         </form>
-        <div className='relative w-full flex items-center gap-2 my-10 opacity-10 uppercase text-black font-blod'>
+        {/* <div className='relative w-full flex items-center gap-2 my-10 opacity-10 uppercase text-black font-blod'>
             <hr className='w-1/2 border-black' />
             <p>or</p>
             <hr className='w-1/2 border-black' />
@@ -146,7 +146,7 @@ export function Unauthenticated(props) {
           >
             <img src={googleIcon} className='w-5 ' />
             continue with google
-          </button>
+          </button> */}
       </div>
     </>
   );

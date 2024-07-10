@@ -16,6 +16,7 @@ import 'mdb-react-ui-kit/dist/css/mdb.min.css';
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import InsertScores from './pages/insertScores.page.jsx';
 import {Ranking} from './pages/public.page.jsx';
+import Examples from './components/examples.component.jsx';
 
 
 export const UserContext = createContext({});
@@ -38,9 +39,10 @@ function App() {
     <UserContext.Provider value={{ userAuth, setUserAuth }}>
         <Routes>
           <Route path='/' element={<Navbar />}>
+            <Route index element={<Examples />} />
             <Route path='/qrcode' element={<QrCodePage />} />
             <Route path="ranking/:id" element={<Ranking />} />
-            <Route index element={<Unauthenticated />} />
+            <Route path='/signin' element={<Unauthenticated />} />
             <Route path='/rank' element={<CollapsibleTable />} />
             <Route path='/team' element={<TeamList/>}/>
             <Route path='/activity' element={<ActivityList/>}/>

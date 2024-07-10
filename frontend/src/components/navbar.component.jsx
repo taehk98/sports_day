@@ -142,10 +142,13 @@ const Navbar = () => {
                      <a href={isPublicRankingPage ? '#' : '/'} onClick={handleClick} className={`flex-none mt-auto w-20`}>
                         <img src={logo} className='w-full rounded-full' alt='Logo' />
                     </a>
-                    <div className='flex items-center gap-3 md:gap-6 ml-auto'></div>
-                    {/* <Link to='/signin' className='btn-dark py-2'>
-                        로그인
-                    </Link> */}
+                    <div className='flex items-center gap-3 md:gap-6 ml-auto'>
+                        {location.pathname !== '/signin' ? (
+                            <Link to='/signin' className='btn-dark py-2'>
+                                로그인
+                            </Link>
+                        ) : null}
+                    </div>
                 </>
                 )}
             </nav>

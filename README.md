@@ -1,4 +1,2 @@
-# 초기세팅 용
-
-## npm install 각각 backend frontend에서!
 ### tailwindcss, react, express
+### Modified the code in my fsy repo to make it accessible to everyone.

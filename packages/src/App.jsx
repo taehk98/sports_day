@@ -2,9 +2,9 @@
 import React from 'react';
 import { createContext, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { lookInSession } from './common/session';
-import PageNotFound from './pages/404.page';
-import Navbar from './components/navbar.component';
+import { lookInSession } from './common/session.jsx';
+import PageNotFound from './pages/404.page.jsx';
+import Navbar from './components/navbar.component.jsx';
 import QrCodePage from './pages/qrcode.page.jsx';
 import {CollapsibleTable} from './components/table.component.jsx';
 import {Unauthenticated} from './login/unauthenticated.jsx';

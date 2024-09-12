@@ -20,7 +20,7 @@ const Examples = () => {
   }, [screenshots.length]);
 
   return (
-    <div className='carousel-wrapper pt-3'>
+    <div className='h-[calc(100vh-80px)] pt-3 carousel-wrapper overflow-auto'>
       <h1 className='text-4xl font-gelasio capitalize text-center mb-5'>
             Join us today
           </h1>

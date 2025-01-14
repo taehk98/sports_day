@@ -1,6 +1,6 @@
 # FSY Project
 
-> **A fully accessible web application built with React, Express, and TailwindCSS.**
+> **A fully accessible mobile-optimized web application built with React, Express, and TailwindCSS.**
 
 This repository showcases a project aimed at making the web accessible for everyone.  
 We've modified the code to ensure seamless user experiences for all.
@@ -10,8 +10,6 @@ We've modified the code to ensure seamless user experiences for all.
 ## 🚀 **Features**
 - **Frontend**: Built with React and styled using TailwindCSS for modern, responsive designs.
 - **Backend**: Powered by Express.js for efficient server-side logic.
-- **Accessibility**: Fully optimized to ensure inclusivity for all users.
-- **Open to All**: This project is now accessible to everyone.
 
 ---
 
